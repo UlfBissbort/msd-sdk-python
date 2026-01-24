@@ -1,6 +1,6 @@
 """MSD SDK - Python SDK for Meta Structured Data"""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def _verify_zef_installation():
@@ -26,3 +26,5 @@ def _verify_zef_installation():
 
 # Verify zef installation on import
 _zef = _verify_zef_installation()
+
+
