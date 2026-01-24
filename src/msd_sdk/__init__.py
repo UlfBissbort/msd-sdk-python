@@ -28,3 +28,21 @@ def _verify_zef_installation():
 _zef = _verify_zef_installation()
 
 
+# Re-export core API functions
+from msd_sdk.core import (
+    key_from_env,
+    create_granule,
+    content_hash,
+    verify,
+)
+
+__all__ = [
+    "__version__",
+    "key_from_env",
+    "create_granule", 
+    "content_hash",
+    "verify",
+]
+
+
+
