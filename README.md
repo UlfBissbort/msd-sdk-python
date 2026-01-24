@@ -132,6 +132,10 @@ my_content_hash = msd.content_hash(data)
 # Returns: String(hash='🪨-523d1d9f304a40f30aa741cbdd66cad80f65b9db6c6cba66f2e149e0c2907f29')
 ```
 
+## Writing Tests
+
+See [docs/writing-tests.md](docs/writing-tests.md) for the test pattern and guide.
+
 
 
 
