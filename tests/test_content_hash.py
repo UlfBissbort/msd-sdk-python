@@ -73,7 +73,6 @@ test_cases = [
   )
 ]
 
-#%%
 # ============================================================================
 # Test Execution - using Python loops since msd functions can't be used in ops
 # ============================================================================
@@ -87,17 +86,16 @@ def run_tests(test_cases):
         args = test['args']
         evaluated = msd.content_hash(*args)
         
-        # Compare with expected (if it exists)
-        expected = test.get('expected')
-        if expected is not None:
-            matches = (expected == evaluated)
-            if not matches:
-                failed_tests.append({
-                    'description': test['description'],
-                    'args': args,
-                    'expected': expected,
-                    'evaluated': evaluated,
-                })
+        # Compare with expected - use direct access, not .get()
+        expected = test['expected']
+        matches = (expected == evaluated)
+        if not matches:
+            failed_tests.append({
+                'description': test['description'],
+                'args': args,
+                'expected': expected,
+                'evaluated': evaluated,
+            })
     
     return failed_tests
 
