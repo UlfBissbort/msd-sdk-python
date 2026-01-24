@@ -94,11 +94,9 @@ def verify(granule: dict) -> bool:
     
     Returns:
         True if the signature is valid, False otherwise.
-    
-    Raises:
-        NotImplementedError: This function is not yet implemented.
     """
-    raise NotImplementedError(
-        "verify is not yet implemented. "
-        "This function will verify the Ed25519 signature of an MSD Granule."
-    )
+    import zef
+    
+    granule_internal = zef.from_json_like(granule)
+    result = granule_internal | zef.verify_granite_signature | zef.collect
+    return bool(result)
