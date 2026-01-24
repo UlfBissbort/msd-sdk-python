@@ -3,16 +3,15 @@ from zef import *
 import msd_sdk as msd
 
 
-# Initial test data - no UIDs, no expected values
-# verify() takes a granule dict and returns True/False
+# Test cases for verify() - takes a granule dict and returns True/False
 test_cases = [
   ET.UnitTest('🍃-d0b48b579907088f75eb',
-    description='Verify valid granule with string data',
+    description='Verify valid granule with string data (complete metadata)',
     args=[
       {
         '__type': 'ET.SignedGranule',
         'data': 'Hello, Meta Structured Data!',
-        'metadata': {'creator': 'Alice'},
+        'metadata': {'creator': 'Alice', 'description': 'sample data'},
         'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
@@ -28,7 +27,7 @@ test_cases = [
         }
       }
     ],
-    expected=False
+    expected=True
   ),
   ET.UnitTest('🍃-86639ad287701cc4df6a',
     description='Verify tampered granule (data modified)',
