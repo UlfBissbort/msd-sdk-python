@@ -206,3 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .DS_Store
+claude_prompt.py
+
+# Personal notes - md files starting with underscore in /notes
+notes/_*.md
