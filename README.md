@@ -132,6 +132,16 @@ my_content_hash = msd.content_hash(data)
 # Returns: String(hash='🪨-523d1d9f304a40f30aa741cbdd66cad80f65b9db6c6cba66f2e149e0c2907f29')
 ```
 
+**About Merkle Hashing**
+
+`content_hash` uses BLAKE3 Merkle hashing for aggregate data types (Dict, Array/List, Set) and Entity types. This enables:
+
+- **Structural sharing**: Reused sub-structures have the same hash
+- **Interoperability with signatures**: Shared data can be verified independently  
+- **Specifying aggregates by hashes**: A dict's hash depends on the hashes of its keys and values
+
+The mapping from hash → full value can be maintained via hash stores (dicts/maps), enabling content-addressed storage and deduplication.
+
 ## Writing Tests
 
 See [docs/writing-tests.md](docs/writing-tests.md) for the test pattern and guide.

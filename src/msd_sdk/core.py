@@ -73,13 +73,31 @@ def create_granule(data, metadata: dict, key: dict) -> dict:
 
 def content_hash(data) -> str:
     """
-    Compute the BLAKE3 content hash of data.
+    Compute the BLAKE3 Merkle hash of data.
+    
+    This function uses Merkle hashing for aggregate data types (Dict, Array/List,
+    Set) and Entity types (which are thin type wrappers around dicts/records).
+    
+    Merkle hashing enables:
+    - Structural sharing: Reused sub-structures have the same hash
+    - Interoperability with signatures: Shared data can be verified independently
+    - Specifying aggregates by constituent hashes: A dict's hash depends on 
+      the hashes of its keys and values, not just raw bytes
+    
+    The mapping from Merkle hash to full value can be maintained by passing
+    hash stores (dicts/maps) alongside the hashes, enabling content-addressed
+    storage and deduplication.
     
     Args:
-        data: The data to hash (can be any JSON-serializable value).
+        data: The data to hash. Can be:
+              - Primitives: str, int, float, bool, None
+              - Aggregates: dict, list (uses Merkle hashing of elements)
+              - Entity types: ET.* wrapped dicts
     
     Returns:
-        A string representing the content hash in the format '🪨-{hex}'.
+        A typed hash value in the format 'Type(hash=🪨-{hex})' where Type
+        indicates the original data type (String, Int, Float, Bool, Nil, 
+        Dict, Array).
     """
     import zef
     return zef.merkle_hash(data)
