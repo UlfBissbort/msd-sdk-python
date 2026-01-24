@@ -51,7 +51,7 @@ Usage Examples:
     _zef  # Not available (not in __all__)
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def _verify_zef_installation():
