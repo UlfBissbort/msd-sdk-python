@@ -68,14 +68,9 @@ def content_hash(data) -> str:
     
     Returns:
         A string representing the content hash in the format '🪨-{hex}'.
-    
-    Raises:
-        NotImplementedError: This function is not yet implemented.
     """
-    raise NotImplementedError(
-        "content_hash is not yet implemented. "
-        "This function will compute the BLAKE3 merkle hash of the provided data."
-    )
+    import zef
+    return zef.merkle_hash(data)
 
 
 def verify(granule: dict) -> bool:

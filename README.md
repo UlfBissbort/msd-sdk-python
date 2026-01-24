@@ -10,6 +10,26 @@ Python SDK for Meta Structured Data.
 pip install msd-sdk
 ```
 
+> **Note**: This SDK requires `zef-core` which is not yet publicly available. The import will fail until zef-core is installed.
+
+## Development: Building from Source
+
+When developing locally, you must build and install from the local wheel to avoid pip installing the (older) PyPI version.
+
+```bash
+# 1. Build the wheel
+uv build
+
+# 2. Install from local dist (not from PyPI!)
+#    Use --no-index to prevent PyPI fallback
+python -m pip install --no-index --find-links=./dist msd-sdk
+
+# Or with explicit path to avoid version conflicts:
+python -m pip install ./dist/msd_sdk-*.whl --force-reinstall
+```
+
+**Common Pitfall**: Running `pip install .` may reinstall the published PyPI version if it has the same version number. Always use `--no-index` or install the wheel directly when developing.
+
 ## Usage
 
 ```python
