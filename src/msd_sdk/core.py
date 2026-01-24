@@ -38,25 +38,25 @@ def create_granule(data, metadata: dict, key: dict) -> dict:
         data: The data to sign (can be any JSON-serializable value).
         metadata: A dictionary of metadata about the data.
         key: The Ed25519 key pair to sign with (from key_from_env or similar).
+             Must be a dict with '__type': 'ET.Ed25519KeyPair' and 'private_key'.
     
     Returns:
         A dictionary representing the signed granule with structure:
         {
-          '__type': 'MSD.Granule',
+          '__type': 'ET.SignedGranule',
           'data': ...,
           'metadata': {...},
           'signature_time': {...},
           'signature': {...},
           'key': {...}
         }
-    
-    Raises:
-        NotImplementedError: This function is not yet implemented.
     """
-    raise NotImplementedError(
-        "create_granule is not yet implemented. "
-        "This function will create a signed MSD Granule from data, metadata, and a key."
-    )
+    import zef
+    timestamp = zef.now()
+    key_internal = zef.from_json_like(key)
+    granule_internal = zef.create_signed_granule(data, metadata, timestamp, key_internal)
+    result = granule_internal | zef.to_json_like | zef.collect
+    return result
 
 
 def content_hash(data) -> str:
