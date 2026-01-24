@@ -100,6 +100,78 @@ test_cases = [
       }
     ],
     expected=True
+  ),
+  ET.UnitTest('🍃-e30e177347d120fb5277',
+    description='Verify tampered signature (invalid signature bytes)',
+    args=[
+      {
+        '__type': 'ET.SignedGranule',
+        'data': 'Hello, Meta Structured Data!',
+        'metadata': {'creator': 'Alice', 'description': 'sample data'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature': {
+          '__type': 'ET.Ed25519Signature',
+          'signature': (
+            '🔏-000000000000000000000000000000000000000000000000000000000000000000000000000'
+            '00000000000000000000000000000000000000000000000000000'
+          )
+        },
+        'key': {
+          '__type': 'ET.Ed25519KeyPair',
+          '__uid': '🍃-8d1dc8766070c87a4bb1',
+          'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
+        }
+      }
+    ],
+    expected=False
+  ),
+  ET.UnitTest('🍃-177bafc341f1ffef3a74',
+    description='Verify wrong public key',
+    args=[
+      {
+        '__type': 'ET.SignedGranule',
+        'data': 'Hello, Meta Structured Data!',
+        'metadata': {'creator': 'Alice', 'description': 'sample data'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature': {
+          '__type': 'ET.Ed25519Signature',
+          'signature': (
+            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
+            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+          )
+        },
+        'key': {
+          '__type': 'ET.Ed25519KeyPair',
+          '__uid': '🍃-8d1dc8766070c87a4bb1',
+          'public_key': '🔑-0000000000000000000000000000000000000000000000000000000000000000'
+        }
+      }
+    ],
+    expected=False
+  ),
+  ET.UnitTest('🍃-aefb998b6c9a6dfeb8d7',
+    description='Verify tampered timestamp',
+    args=[
+      {
+        '__type': 'ET.SignedGranule',
+        'data': 'Hello, Meta Structured Data!',
+        'metadata': {'creator': 'Alice', 'description': 'sample data'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '9999999999'},
+        'signature': {
+          '__type': 'ET.Ed25519Signature',
+          'signature': (
+            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
+            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+          )
+        },
+        'key': {
+          '__type': 'ET.Ed25519KeyPair',
+          '__uid': '🍃-8d1dc8766070c87a4bb1',
+          'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
+        }
+      }
+    ],
+    expected=False
   )
 ]
 
