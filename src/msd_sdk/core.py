@@ -1,9 +1,13 @@
 """Core API functions for MSD SDK."""
 
+import json
+
 
 def key_from_env(env_var_name: str = "MSD_PRIVATE_KEY") -> dict:
     """
     Load an Ed25519 key pair from an environment variable.
+    
+    The environment variable should contain a JSON-encoded key pair.
     
     Args:
         env_var_name: Name of the environment variable containing the key.
@@ -19,12 +23,20 @@ def key_from_env(env_var_name: str = "MSD_PRIVATE_KEY") -> dict:
         }
     
     Raises:
-        NotImplementedError: This function is not yet implemented.
+        KeyError: If the environment variable is not set.
+        json.JSONDecodeError: If the environment variable doesn't contain valid JSON.
     """
-    raise NotImplementedError(
-        "key_from_env is not yet implemented. "
-        "This function will load an Ed25519 key pair from the specified environment variable."
-    )
+    import zef
+    
+    # Use Zef's managed effect system to get the environment variable
+    env_value = zef.FX.GetEnvVar(name=env_var_name) | zef.run
+    
+    if env_value is None:
+        raise KeyError(f"Environment variable '{env_var_name}' is not set")
+    
+    # Convert Zef String to Python string and parse as JSON
+    key_json = str(env_value)
+    return json.loads(key_json)
 
 
 def create_granule(data, metadata: dict, key: dict) -> dict:
