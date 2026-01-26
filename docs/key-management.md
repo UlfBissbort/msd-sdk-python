@@ -17,9 +17,9 @@ MSD uses a **two-tier key model** that mirrors real-world trust relationships:
 graph TD
     Root[🏛️ MSD Platform Root] -->|endorses| I1[👤 Alice Identity Key]
     Root -->|endorses| I2[🏢 Acme Corp Key]
-    I1 -->|delegates| W1[⚙️ CI Pipeline Key<br/>expires: 24h]
-    I1 -->|delegates| W2[📝 Document Signing Key<br/>expires: 7d]
-    I2 -->|delegates| W3[🤖 API Service Key<br/>expires: 1h]
+    I1 -->|endorses| W1[⚙️ CI Pipeline Key<br/>expires: 24h]
+    I1 -->|endorses| W2[📝 Document Signing Key<br/>expires: 7d]
+    I2 -->|endorses| W3[🤖 API Service Key<br/>expires: 1h]
     
     style Root fill:#1a1a2e,stroke:#4a4a6a,color:#e0e0e0
     style I1 fill:#16213e,stroke:#4a4a6a,color:#e0e0e0
@@ -83,9 +83,9 @@ When registered with the MSD platform, the key includes a certificate:
 }
 ```
 
-### Delegated Key (Signed by Parent)
+### Endorsed Working Key
 
-Working keys are signed by an identity key and include expiry:
+Working keys are endorsed by an identity key and include expiry:
 
 ```python
 {
@@ -93,10 +93,10 @@ Working keys are signed by an identity key and include expiry:
     '__uid': '🍃-a2b3c4d5e6f78901bcde',
     'private_key': '🗝️-f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7',
     'public_key': '🔑-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    'delegation': {
-        '__type': 'ET.KeyDelegation',
-        'delegated_by': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284',
-        'delegation_signature': '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619bae5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07',
+    'endorsement': {
+        '__type': 'ET.KeyEndorsement',
+        'endorsed_by': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284',
+        'endorsement_signature': '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619bae5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07',
         'issued_at': {'__type': 'Time', 'zef_unix_time': '1737849600'},
         'expires_at': {'__type': 'Time', 'zef_unix_time': '1737936000'}
     }
@@ -128,18 +128,23 @@ print(identity_key)
 
 ### Generate a Working Key
 
-Working keys are time-limited and signed by an identity key:
+Working keys are time-limited and endorsed by an identity key:
 
 ```python
 # Generate a working key with explicit expiry
 ci_key = msd.generate_key_pair(
     expires_in="30d",           # Valid for 30 days
-    signed_by=identity_key       # Signed by identity key
+    endorsed_by=identity_key     # Endorsed by identity key
 )
-
-# Or use defaults: 24h expiry, signed by default identity
-ci_key = msd.generate_key_pair(expires_in="24h", signed_by=identity_key)
 ```
+
+**Duration units:**
+
+| Unit | Example | Typical Use Case |
+|------|---------|------------------|
+| `h` (hours) | `"24h"` | Short CI jobs |
+| `d` (days) | `"7d"`, `"30d"` | Development, staging |
+| `m` (months) | `"3m"`, `"6m"` | Production services |
 
 ### Sign Data
 
@@ -162,7 +167,6 @@ Keys are plain JSON data. The recommended storage approach depends on your envir
 |-------------|--------------------|----- |
 | **Local development** | Files in default directory | Simple, persistent |
 | **Production servers** | Secrets manager → env vars | Secure, auditable, rotatable |
-| **CI/CD pipelines** | Secrets → env vars per-run | Ephemeral, no disk persistence |
 
 ### Default Storage Locations (Local Development)
 
@@ -262,18 +266,20 @@ sequenceDiagram
     Platform->>SDK: Challenge nonce
     SDK->>SDK: Sign with private key
     SDK->>Platform: Proof of ownership
-    Platform->>SDK: Platform endorsement certificate
+    Platform->>SDK: Platform endorsement
     SDK->>User: Endorsed identity key
     
     Note over User,Platform: Daily: Create Working Keys
-    User->>SDK: delegate_key(parent=identity_key)
-    SDK->>SDK: Generate + sign with identity key
-    SDK->>User: Delegated working key
+    User->>SDK: generate_key_pair(endorsed_by=identity_key)
+    SDK->>SDK: Generate + endorse with identity key
+    SDK->>User: Endorsed working key
 ```
 
-### Verification Chain
+### Endorsement Chain
 
-Anyone can verify signatures by tracing the trust chain:
+> **A key is valid if it is part of a chain of endorsements leading to a trusted root key.**
+
+Anyone can verify signatures by tracing the endorsement chain:
 
 ```python
 result = msd.verify(signed_data, return_details=True)
@@ -281,13 +287,15 @@ result = msd.verify(signed_data, return_details=True)
 # Returns (using UIDs for compact display):
 {
     'valid': True,
-    'trust_chain': [
-        {'type': 'MSD Platform Root', 'uid': '🍃-msd_root_00001', 'status': 'trusted'},
-        {'type': 'Identity Key', 'uid': '🍃-8d1dc8766070c87a4bb1', 'status': 'active'},
-        {'type': 'Working Key', 'uid': '🍃-a2b3c4d5e6f78901bcde', 'status': 'active', 'expires_at': '2026-02-25T00:00:00Z'}
+    'endorsement_chain': [
+        {'type': 'MSD Platform Root', 'uid': '🍃-c2f7b7d4528c970d7a0a', 'status': 'trusted'},
+        {'type': 'Identity Key', 'uid': '🍃-8d1dc8766070c87a4bb1', 'endorsed_by': '🍃-c2f7b7d4528c970d7a0a', 'status': 'active'},
+        {'type': 'Working Key', 'uid': '🍃-a2b3c4d5e6f78901bcde', 'endorsed_by': '🍃-8d1dc8766070c87a4bb1', 'status': 'active', 'expires_at': '2026-02-25T00:00:00Z'}
     ]
 }
 ```
+
+The chain shows: **Root → endorses → Identity Key → endorses → Working Key**
 
 ---
 
@@ -325,7 +333,7 @@ export MSD_TRUST_ANCHORS='[
 | ✅ Do | ❌ Don't |
 |-------|---------|
 | Store in password manager or HSM | Store in plain text files in repos |
-| Use for creating delegated keys | Use for routine signing |
+| Use for endorsing working keys | Use for routine signing |
 | Back up securely | Share or transmit over network |
 | One per person/organization | Multiple identity keys per entity |
 
@@ -352,9 +360,9 @@ msd.generate_key_pair(
     register_with_platform=True    # Default: True
 ) -> dict
 
-# Working key (signed by identity key, has expiry)
+# Working key (endorsed by identity key, has expiry)
 msd.generate_key_pair(
-    signed_by=identity_key,        # Parent key signs this key
+    endorsed_by=identity_key,      # Identity key endorses this key
     expires_in="30d"               # Duration: "1h", "7d", "30d", "90d"
 ) -> dict
 ```
@@ -381,10 +389,10 @@ msd.get_key_directory() -> str
 
 ```python
 # Check if key is endorsed by trusted root
-msd.is_trusted(key) -> bool
+msd.is_endorsed(key) -> bool
 
-# Get full trust chain
-msd.get_trust_chain(key) -> list
+# Get full endorsement chain
+msd.get_endorsement_chain(key) -> list
 
 # Add custom trust anchor
 msd.add_trust_anchor(name, public_key)
