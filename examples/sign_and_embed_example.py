@@ -106,9 +106,9 @@ def main():
         ('sample2.png', 'png', {'author': 'test_user', 'version': '1.0'}),
         ('sample2.jpg', 'jpg', {'author': 'photographer', 'camera': 'digital'}),
         ('sample.pdf', 'pdf', {'author': 'document_creator', 'department': 'engineering'}),
-        ('demo.docx', 'word_document', {'author': 'writer', 'confidential': True}),
-        ('demo.xlsx', 'excel_document', {'author': 'analyst', 'quarter': 4}),
-        ('real.pptx', 'powerpoint_document', {'author': 'presenter', 'slides': 1}),
+        ('sample.docx', 'word_document', {'author': 'writer', 'confidential': True}),
+        ('sample.xlsx', 'excel_document', {'author': 'analyst', 'quarter': 4}),
+        ('sample.pptx', 'powerpoint_document', {'author': 'presenter', 'slides': 1}),
     ]
     
     results = []

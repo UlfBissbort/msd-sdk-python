@@ -210,3 +210,6 @@ claude_prompt.py
 
 # Personal notes - md files starting with underscore in /notes
 notes/_*.md
+
+# Generated example output
+examples/signed_output/

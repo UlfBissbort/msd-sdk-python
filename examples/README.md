@@ -8,6 +8,7 @@ This folder contains examples demonstrating how to use the MSD-SDK for signing a
 |--------|----------|-------------|
 | PNG | `png` | PNG images |
 | JPG | `jpg` | JPEG images |
+| PDF | `pdf` | PDF documents |
 | DOCX | `word_document` | Microsoft Word documents |
 | XLSX | `excel_document` | Microsoft Excel spreadsheets |
 | PPTX | `powerpoint_document` | Microsoft PowerPoint presentations |
@@ -47,9 +48,10 @@ The `sample_files/` directory contains test files for each supported format:
 
 - `sample2.png` - Sample PNG image
 - `sample2.jpg` - Sample JPEG image
-- `demo.docx` - Sample Word document
-- `demo.xlsx` - Sample Excel spreadsheet
-- `real.pptx` - Sample PowerPoint presentation
+- `sample.pdf` - Sample PDF document
+- `sample.docx` - Sample Word document
+- `sample.xlsx` - Sample Excel spreadsheet
+- `sample.pptx` - Sample PowerPoint presentation
 
 ## Key Concepts
 
