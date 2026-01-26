@@ -173,7 +173,7 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
         case 'pdf': data_ = zef.PDF(data['content'])
         case 'word_document': data_ = zef.ET.WordDocument(content=data['content'])
         case 'excel_document': data_ = zef.ET.ExcelDocument(content=data['content'])
-        case 'powerpoint_document': data_ = zef.ET.PowerPointDocument(content=data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerpointDocument(content=data['content'])
         case _: raise ValueError(f"Unsupported type in msd_sdk.sign_and_embed: {data['type']}")
     
     timestamp = zef.now()
@@ -219,7 +219,7 @@ def extract_metadata(signed_data: dict) -> dict:
         case 'pdf': data_ = zef.PDF(signed_data['content'])
         case 'word_document': data_ = zef.ET.WordDocument(content=signed_data['content'])
         case 'excel_document': data_ = zef.ET.ExcelDocument(content=signed_data['content'])
-        case 'powerpoint_document': data_ = zef.ET.PowerPointDocument(content=signed_data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerpointDocument(content=signed_data['content'])
         case _: raise ValueError(f"Unsupported type: {signed_data['type']}")
     
     embedded_bytes = data_ | zef.extract_embedded_data | zef.collect
