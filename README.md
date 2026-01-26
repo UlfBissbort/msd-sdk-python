@@ -196,7 +196,7 @@ is_valid = msd.verify(signed_png_image)
 #### Removing Embedded Signatures and Metadata
 
 ```python
-clean_image = msd.strip_signature(signed_png_image)
+clean_image = msd.strip_metadata_and_signature(signed_png_image)
 ```
 
 

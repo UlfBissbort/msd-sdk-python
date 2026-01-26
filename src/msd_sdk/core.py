@@ -118,3 +118,20 @@ def verify(granule: dict) -> bool:
     granule_internal = zef.from_json_like(granule)
     result = granule_internal | zef.verify_granite_signature | zef.collect
     return bool(result)
+
+
+def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
+    raise NotImplementedError("sign_and_embed is not yet implemented")
+
+
+def extract_metadata(signed_data: dict) -> dict:
+    raise NotImplementedError("extract_metadata is not yet implemented")
+
+
+def extract_signature(signed_data: dict) -> dict:
+    raise NotImplementedError("extract_signature is not yet implemented")
+
+
+def strip_metadata_and_signature(signed_data: dict) -> dict:
+    raise NotImplementedError("strip_signature is not yet implemented")
+
