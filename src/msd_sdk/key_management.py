@@ -14,12 +14,14 @@ import sys
 def generate_key_pair(
     endorsed_by: dict | None = None,
     expires_in: str | None = None,
+    *,
+    unendorsed: bool = False,
 ) -> dict:
     """
     Generate a new Ed25519 key pair.
     
-    With no arguments, creates an identity key endorsed by the MSD platform.
-    With `endorsed_by`, creates a working key endorsed by the given key.
+    By default, creates an identity key endorsed by the MSD platform.
+    Use `endorsed_by` to create a working key endorsed by another key.
     
         # Identity key (platform-endorsed, never expires)
         identity = msd.generate_key_pair()
@@ -29,22 +31,33 @@ def generate_key_pair(
     
     Duration units: "1h" (hours), "7d" (days), "3m" (months)
     
+    For testing or offline use, explicitly request an unendorsed key:
+    
+        # Unendorsed key (not recommended for production)
+        test_key = msd.generate_key_pair(unendorsed=True)
+    
     Returns a key dict with __type, __uid, public_key, private_key,
-    and either platform_certificate or endorsement.
+    and endorsement info (unless unendorsed=True).
     """
-    if endorsed_by is not None or expires_in is not None:
+    if not unendorsed and endorsed_by is None:
+        # Default case: should be platform-endorsed, but not implemented yet
         raise NotImplementedError(
-            "Endorsed/delegated key generation is not yet implemented. "
-            "Use generate_key_pair() without arguments for a basic key pair."
+            "Platform endorsement is not yet implemented. "
+            "For testing, use generate_key_pair(unendorsed=True) to create "
+            "a local-only key pair without endorsement."
         )
     
+    if endorsed_by is not None or expires_in is not None:
+        raise NotImplementedError(
+            "Delegated key generation (endorsed_by) is not yet implemented. "
+            "For testing, use generate_key_pair(unendorsed=True)."
+        )
+    
+    # unendorsed=True: generate a raw key pair
     import zef
     from msd_sdk.core import _to_native_python_hard
     
-    # Generate key pair using zef
     zef_key = zef.generate_ed25519_key_pair()
-    
-    # Convert to JSON-like structure, then to native Python
     json_like = zef.to_json_like(zef_key)
     return _to_native_python_hard(json_like)
 

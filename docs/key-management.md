@@ -363,9 +363,14 @@ working_key = msd.generate_key_pair(
     endorsed_by=identity_key,      # Identity key endorses this key
     expires_in="30d"               # Duration: "1h", "7d", "30d", "3m"
 )
+
+# Unendorsed key (testing/offline only - not recommended for production)
+test_key = msd.generate_key_pair(unendorsed=True)
 ```
 
-> **Future**: Key visibility controls for specifying which parties can discover keys. For now, all keys are local-only unless explicitly shared.
+> **Note**: `generate_key_pair()` requires endorsement by default. Use `unendorsed=True` only for local testing.
+
+> **Coming soon**: Key visibility controls for specifying which parties can discover keys.
 
 ### Key Storage
 
