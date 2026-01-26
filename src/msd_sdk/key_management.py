@@ -5,6 +5,8 @@ Generate, store, and manage Ed25519 key pairs with endorsement chains.
 Keys are plain data (dicts) - you control naming and storage.
 """
 
+import os
+import sys
 from typing import Optional
 
 
@@ -77,7 +79,13 @@ def get_key_directory() -> str:
     
     Returns the expanded absolute path.
     """
-    raise NotImplementedError("get_key_directory is not yet implemented")
+    if sys.platform == "win32":
+        # Windows: use APPDATA, fall back to home if not set
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "msd", "keys")
+    else:
+        # macOS/Linux: XDG-style config directory
+        return os.path.join(os.path.expanduser("~"), ".config", "msd", "keys")
 
 
 def is_endorsed(key: dict) -> bool:
