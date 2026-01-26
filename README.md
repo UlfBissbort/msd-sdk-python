@@ -58,7 +58,7 @@ python examples/sign_and_embed_example.py
 ```
 
 The example demonstrates:
-- Loading PNG, JPG, DOCX, XLSX, PPTX files
+- Loading PNG, JPG, PDF, DOCX, XLSX, PPTX files
 - Signing and embedding metadata
 - Saving signed files to disk
 - Extracting metadata from signed files
