@@ -30,6 +30,42 @@ python -m pip install ./dist/msd_sdk-*.whl --force-reinstall
 
 **Common Pitfall**: Running `pip install .` may reinstall the published PyPI version if it has the same version number. Always use `--no-index` or install the wheel directly when developing.
 
+## Development Setup with Zef
+
+Since `msd-sdk` requires `zef` (which must be installed from source), you need to install msd-sdk into the same virtual environment where zef is installed:
+
+```bash
+# 1. Activate the venv where zef is already installed
+source /path/to/zef/dev_venv/bin/activate
+
+# 2. Install msd-sdk in editable mode from your local clone
+pip install -e /path/to/msd-sdk-python
+
+# 3. Verify both are available
+python -c "import zef; import msd_sdk; print('✓ Both packages installed')"
+```
+
+## Running the Examples
+
+The `examples/` folder contains working examples with sample files:
+
+```bash
+# Make sure you're in the venv with both zef and msd-sdk installed
+source /path/to/zef/dev_venv/bin/activate
+
+# Run the examples
+python examples/sign_and_embed_example.py
+```
+
+The example demonstrates:
+- Loading PNG, JPG, DOCX, XLSX, PPTX files
+- Signing and embedding metadata
+- Saving signed files to disk
+- Extracting metadata from signed files
+- Stripping metadata to recover original content
+
+See [examples/README.md](examples/README.md) for more details.
+
 ## Usage
 
 ### 1. Load Key from Environment
