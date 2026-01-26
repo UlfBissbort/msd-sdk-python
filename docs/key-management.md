@@ -35,6 +35,23 @@ graph TD
 
 A key is **plain data** represented as a Python dictionary. Keys have **no internal labels** — naming is external (the relationship between your namespace and the key value).
 
+### Key UIDs
+
+Every key has a unique identifier of the form `🍃-8d1dc8766070c87a4bb1`. This UID is:
+- **Shorter** than the full public key (20 chars vs 64 chars)
+- **Globally unique** — can be used to reference keys in logs, configs, and trust chains
+- **Immutable** — assigned at key creation, never changes
+
+Use UIDs when:
+- Displaying keys in UIs or logs (more readable)
+- Referencing keys in configuration files
+- Trust chain displays (compact representation)
+
+Use full public keys when:
+- Cryptographic verification is required
+- Interoperating with external systems
+- Storing trust anchors
+
 ### Basic Key (Local Only)
 
 ```python
@@ -109,14 +126,19 @@ print(identity_key)
 # }
 ```
 
-### Create a Working Key for Automation
+### Generate a Working Key
+
+Working keys are time-limited and signed by an identity key:
 
 ```python
-# Delegate a time-limited key from your identity
-ci_key = msd.delegate_key(
-    parent=identity_key,
-    expires_in="24h"
+# Generate a working key with explicit expiry
+ci_key = msd.generate_key_pair(
+    expires_in="30d",           # Valid for 30 days
+    signed_by=identity_key       # Signed by identity key
 )
+
+# Or use defaults: 24h expiry, signed by default identity
+ci_key = msd.generate_key_pair(expires_in="24h", signed_by=identity_key)
 ```
 
 ### Sign Data
@@ -134,11 +156,17 @@ granule = msd.create_granule(
 
 ## Key Storage
 
-Keys are plain JSON data. Store them in a file and manage naming externally via your filesystem or configuration.
+Keys are plain JSON data. The recommended storage approach depends on your environment:
 
-### Default Storage Locations
+| Environment | Recommended Storage | Why |
+|-------------|--------------------|----- |
+| **Local development** | Files in default directory | Simple, persistent |
+| **Production servers** | Secrets manager → env vars | Secure, auditable, rotatable |
+| **CI/CD pipelines** | Secrets → env vars per-run | Ephemeral, no disk persistence |
 
-The SDK uses idiomatic default locations per operating system:
+### Default Storage Locations (Local Development)
+
+For local development on personal machines, the SDK uses idiomatic default locations per operating system:
 
 | OS | Default Path | Notes |
 |----|--------------|-------|
@@ -188,7 +216,9 @@ Keys are stored as plain JSON:
 }
 ```
 
-### Load from Environment Variable
+### Load from Environment Variable (Production Recommended)
+
+For production servers and CI/CD, inject keys via environment variables from your secrets manager:
 
 ```python
 # Key stored as JSON string in environment variable
@@ -196,8 +226,21 @@ my_key = msd.key_from_env("MSD_PRIVATE_KEY")
 ```
 
 ```bash
-# Set in environment (single line, escaped quotes)
+# Set in environment (single line JSON)
 export MSD_PRIVATE_KEY='{"__type":"ET.Ed25519KeyPair","__uid":"🍃-8d1dc8766070c87a4bb1","private_key":"🗝️-61250af6bf8b9332be5c2b8a4877c56189867c8840cce541ab7fbe9270bb9b6c","public_key":"🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284"}'
+```
+
+Integration with common secrets managers:
+
+```bash
+# AWS Secrets Manager
+export MSD_PRIVATE_KEY=$(aws secretsmanager get-secret-value --secret-id msd-signing-key --query SecretString --output text)
+
+# HashiCorp Vault
+export MSD_PRIVATE_KEY=$(vault kv get -field=key secret/msd/signing-key)
+
+# GitHub Actions (from repository secrets)
+# Already available as: ${{ secrets.MSD_PRIVATE_KEY }}
 ```
 
 ---
@@ -235,13 +278,13 @@ Anyone can verify signatures by tracing the trust chain:
 ```python
 result = msd.verify(signed_data, return_details=True)
 
-# Returns:
+# Returns (using UIDs for compact display):
 {
     'valid': True,
     'trust_chain': [
-        {'type': 'MSD Platform Root', 'status': 'trusted'},
-        {'type': 'Identity Key', 'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284', 'status': 'active'},
-        {'type': 'Delegated Key', 'public_key': '🔑-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'status': 'active'}
+        {'type': 'MSD Platform Root', 'uid': '🍃-msd_root_00001', 'status': 'trusted'},
+        {'type': 'Identity Key', 'uid': '🍃-8d1dc8766070c87a4bb1', 'status': 'active'},
+        {'type': 'Working Key', 'uid': '🍃-a2b3c4d5e6f78901bcde', 'status': 'active', 'expires_at': '2026-02-25T00:00:00Z'}
     ]
 }
 ```
@@ -290,10 +333,12 @@ export MSD_TRUST_ANCHORS='[
 
 | ✅ Do | ❌ Don't |
 |-------|---------|
-| Set short expiry (hours-days) | Create without expiry |
-| Scope to specific tasks | Grant broad permissions |
-| Generate fresh for each pipeline run | Reuse across environments |
+| Set appropriate expiry (days to months) | Create without expiry |
+| Scope to specific environments | Grant overly broad permissions |
+| Rotate periodically (similar to TLS certs) | Reuse same key indefinitely |
 | Let expire naturally | Keep long after use |
+
+> **Note**: Working keys don't need to be generated per-signature. A typical pattern is issuing keys valid for days to months (similar to TLS certificates), managed by a key service or CI/CD system.
 
 ---
 
@@ -307,11 +352,10 @@ msd.generate_key_pair(
     register_with_platform=True    # Default: True
 ) -> dict
 
-# Delegated working key (signed by parent, expires)
-msd.delegate_key(
-    parent=identity_key,           # Parent key (must be identity or delegated)
-    expires_in="24h",              # Duration: "1h", "7d", "30d"
-    permissions=["sign"]           # Optional: limit capabilities
+# Working key (signed by identity key, has expiry)
+msd.generate_key_pair(
+    signed_by=identity_key,        # Parent key signs this key
+    expires_in="30d"               # Duration: "1h", "7d", "30d", "90d"
 ) -> dict
 ```
 
@@ -351,18 +395,13 @@ msd.add_trust_anchor(name, public_key)
 ## Example: CI/CD Pipeline
 
 ```python
-# ci_setup.py - Generate ephemeral key for this pipeline run
+# ci_setup.py - Use pre-provisioned working key from secrets
 import msd_sdk as msd
 import os
 
-# Load identity key from secure secret store
-identity_key = msd.key_from_env("MSD_IDENTITY_KEY")
-
-# Create ephemeral key for this run (no label - naming is external)
-pipeline_key = msd.delegate_key(
-    parent=identity_key,
-    expires_in="2h"
-)
+# Load working key from CI secrets (pre-generated, valid for ~30 days)
+# Key rotation is handled by your key management service
+pipeline_key = msd.key_from_env("MSD_CI_SIGNING_KEY")
 
 # Sign build artifacts
 for artifact in build_artifacts:
@@ -372,9 +411,9 @@ for artifact in build_artifacts:
         key=pipeline_key
     )
     msd.save_file(f"{artifact.name}.msd", signed)
-
-# Key expires automatically - no cleanup needed
 ```
+
+> **Tip**: Rather than generating keys per-pipeline-run, provision working keys with 30-90 day validity and rotate them periodically (similar to TLS certificate management).
 
 ---
 
