@@ -355,17 +355,17 @@ export MSD_TRUST_ANCHORS='[
 ### Key Generation
 
 ```python
-# Identity key (platform-endorsed, never expires)
-msd.generate_key_pair(
-    register_with_platform=True    # Default: True
-) -> dict
+# Identity key (endorsed by MSD platform, never expires)
+identity_key = msd.generate_key_pair()
 
 # Working key (endorsed by identity key, has expiry)
-msd.generate_key_pair(
+working_key = msd.generate_key_pair(
     endorsed_by=identity_key,      # Identity key endorses this key
-    expires_in="30d"               # Duration: "1h", "7d", "30d", "90d"
-) -> dict
+    expires_in="30d"               # Duration: "1h", "7d", "30d", "3m"
+)
 ```
+
+> **Future**: Key visibility controls for specifying which parties can discover keys. For now, all keys are local-only unless explicitly shared.
 
 ### Key Storage
 
@@ -424,31 +424,6 @@ for artifact in build_artifacts:
 > **Tip**: Rather than generating keys per-pipeline-run, provision working keys with 30-90 day validity and rotate them periodically (similar to TLS certificate management).
 
 ---
-
-## Example: Document Approval Workflow
-
-```python
-# User reviews and signs off on a document
-import msd_sdk as msd
-
-# Load document and reviewer's identity key
-document = msd.load_file("contract.pdf.msd")
-reviewer_key = msd.load_key("legal-reviewer.json")
-
-# Create approval signature (references original, doesn't duplicate)
-approval = msd.create_granule(
-    data={'document_hash': msd.content_hash(document)},
-    metadata={
-        'action': 'approved',
-        'reviewer': 'legal@company.com',
-        'comment': 'Reviewed for compliance. Approved.',
-    },
-    key=reviewer_key
-)
-
-# Verification shows both original signer and approver
-msd.verify(approval)  # Valid: signed by reviewer's identity key
-```
 
 ---
 
