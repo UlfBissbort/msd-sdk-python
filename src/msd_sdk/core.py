@@ -3,6 +3,28 @@
 import json
 
 
+def _to_native_python_hard(data):
+    """
+    Recursively convert zef data types to native Python types.
+    
+    Handles: Dict2_, String_, List2_, etc. -> dict, str, list, etc.
+    """
+    import zef
+    ptype = zef.primary_type(data)
+    match ptype:
+        case zef.String: return str(data)
+        case zef.Int: return int(data)
+        case zef.Float: return float(data)
+        case zef.Bool: return bool(data)
+        case zef.Nil: return None
+        case zef.Dict: return { _to_native_python_hard(k): _to_native_python_hard(v) for k, v in data.items() }
+        case zef.Array: return [_to_native_python_hard(item) for item in data]
+        case _: raise ValueError(f"Unsupported type in _to_native_python_hard: {ptype}")
+
+
+
+
+
 def key_from_env(env_var_name: str = "MSD_PRIVATE_KEY") -> dict:
     """
     Load an Ed25519 key pair from an environment variable.
@@ -155,7 +177,41 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
 
 
 def extract_metadata(signed_data: dict) -> dict:
-    raise NotImplementedError("extract_metadata is not yet implemented")
+    """
+    Extract metadata from a signed media file (PNG, JPG, PDF, etc.).
+    
+    Args:
+        signed_data: A dict with 'type' and 'content' keys, where content
+                     is the binary data of the signed file.
+    
+    Returns:
+        The metadata dictionary that was attached during signing.
+    
+    Raises:
+        ValueError: If no embedded signature data is found.
+    """
+    import zef
+    
+    match signed_data['type']:
+        case 'png': data_ = zef.PngImage(signed_data['content'])
+        case 'jpg': data_ = zef.JpgImage(signed_data['content'])
+        case 'pdf': data_ = zef.PDF(signed_data['content'])
+        case 'word_document': data_ = zef.ET.WordDocument(content=signed_data['content'])
+        case 'excel_document': data_ = zef.ET.ExcelDocument(content=signed_data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerPointDocument(content=signed_data['content'])
+        case _: raise ValueError(f"Unsupported type: {signed_data['type']}")
+    
+    embedded_bytes = data_ | zef.extract_embedded_data | zef.collect
+    
+    if embedded_bytes is None or (hasattr(zef, 'Nil') and embedded_bytes == zef.Nil):
+        raise ValueError("No embedded signature data found in this file")
+    
+    granule = zef.bytes_to_zef_value(embedded_bytes)
+    granule_dict = granule | zef.to_json_like | zef.collect
+    
+    # Convert zef types to native Python types recursively
+    py_dict = _to_native_python_hard(granule_dict)
+    return py_dict.get('metadata', {})
 
 
 
