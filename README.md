@@ -142,6 +142,65 @@ my_content_hash = msd.content_hash(data)
 
 The mapping from hash → full value can be maintained via hash stores (dicts/maps), enabling content-addressed storage and deduplication.
 
+### Embedding Signatures in Images, PDFs and other Documents
+- granules are a container data structures which contain data, metadata, and signature alongside each other
+- granules can be saved in `.msd` files and provide an efficient binary format for storage and transmission. But your system and existing programs do not know how to interpret them.
+- Sometimes you want to attach metadata and signatures to existing file formats like images (PNG, JPEG), PDFs, audio files, video files and send them to other people or systems.
+- For these cases, MSD also provides tools to embed metadata and signatures **into** certain file formats, but still keeping the original file content intact and viewable by standard programs.
+- Supported formats: 
+  - PNG images
+  - JPG images
+  - PDF documents
+  - Word documents (DOCX)
+  - Excel spreadsheets (XLSX)
+  - PowerPoint presentations (PPTX)
+
+#### ⚠️ Warning ⚠️
+- some programs or platforms may strip out the attached metadata when re-saving or re-exporting the files.
+- A MSD signature applies to exactly one fixed content version of a document. Editing the content in the slightest way invalidates the signature
+
+```python
+signed_png_image = msd.sign_and_embed(
+  data={'type': 'png', 'content': png_binary_data},
+  metadata={'creator': 'Alice', 'description': 'sample image'},
+  key=my_msd_key
+)
+```
+
+The returned image with the embedded signature is also of the form
+```python
+{'type': 'png', 'content': signed_png_binary_data}
+```
+
+The same syntax works for other supported formats with respective MIME types:
+- `png`
+- `jpeg`
+- `pdf`
+- `word-document`
+- `excel-document`
+- `powerpoint-document`
+
+#### Extracting and Verifying Embedded Signatures
+
+```python
+extracted_metadata = msd.extract_metadata(signed_png_image)
+extracted_signature = msd.extract_signature(signed_png_image)
+```
+
+```python
+# Verify signature
+is_valid = msd.verify(signed_png_image)
+```
+
+
+#### Removing Embedded Signatures and Metadata
+
+```python
+clean_image = msd.
+```
+
+
+
 ## Writing Tests
 
 See [docs/writing-tests.md](docs/writing-tests.md) for the test pattern and guide.
