@@ -141,12 +141,15 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
         | zef.remove('data') 
         | zef.to_bytes
         | zef.collect
-    )
-
-    
+    )    
     signed = zef.embed_data(data_, binary_data_to_embed)
     match data['type']:
         case 'png': return {'type': 'png', 'content': bytes(signed.data_as_bytes())}
+        case 'jpg': return {'type': 'jpg', 'content': bytes(signed.data_as_bytes())}
+        case 'pdf': return {'type': 'pdf', 'content': bytes(signed.data_as_bytes())}
+        case 'word_document': return {'type': 'word_document', 'content': bytes(signed.content)}
+        case 'excel_document': return {'type': 'excel_document', 'content': bytes(signed.content)}
+        case 'powerpoint_document': return {'type': 'powerpoint_document', 'content': bytes(signed.content)}
         case _: raise ValueError(f"Unsupported image type: {data['type']}")
 
 
