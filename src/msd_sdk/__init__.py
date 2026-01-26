@@ -99,11 +99,23 @@ from msd_sdk.core import (
     strip_metadata_and_signature,
 )
 
+# Re-export key management functions
+from msd_sdk.key_management import (
+    generate_key_pair,
+    save_key,
+    load_key,
+    get_key_directory,
+    is_endorsed,
+    get_endorsement_chain,
+    add_trust_anchor,
+)
+
 # __all__ explicitly declares the public API of this package.
 # When users write `from msd_sdk import *`, only these names are imported.
 # Internal helpers like _verify_zef_installation and _zef are excluded.
 __all__ = [
     "__version__",
+    # Core API
     "key_from_env",
     "create_granule", 
     "content_hash",
@@ -112,6 +124,14 @@ __all__ = [
     "extract_metadata",
     "extract_signature",
     "strip_metadata_and_signature",
+    # Key Management
+    "generate_key_pair",
+    "save_key",
+    "load_key",
+    "get_key_directory",
+    "is_endorsed",
+    "get_endorsement_chain",
+    "add_trust_anchor",
 ]
 
 
