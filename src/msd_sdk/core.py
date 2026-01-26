@@ -176,6 +176,9 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
         case 'powerpoint_document': data_ = zef.ET.PowerpointDocument(content=data['content'])
         case _: raise ValueError(f"Unsupported type in msd_sdk.sign_and_embed: {data['type']}")
     
+    # First strip any existing embedded data to ensure idempotent behavior
+    data_ = zef.strip_embedded_data(data_)
+    
     timestamp = zef.now()
     key_internal = zef.from_json_like(key)
 
@@ -244,5 +247,38 @@ def extract_signature(signed_data: dict) -> dict:
 
 
 def strip_metadata_and_signature(signed_data: dict) -> dict:
-    raise NotImplementedError("strip_signature is not yet implemented")
+    """
+    Strip the embedded metadata and signature from a signed media file,
+    returning the original file content.
+    
+    Args:
+        signed_data: A dict with 'type' and 'content' keys, where content
+                     is the binary data of the signed file.
+    
+    Returns:
+        A dict with 'type' and 'content' keys, where content is the
+        original file data with all embedded MSD data removed.
+    """
+    import zef
+    
+    match signed_data['type']:
+        case 'png': data_ = zef.PngImage(signed_data['content'])
+        case 'jpg': data_ = zef.JpgImage(signed_data['content'])
+        case 'pdf': data_ = zef.PDF(signed_data['content'])
+        case 'word_document': data_ = zef.ET.WordDocument(content=signed_data['content'])
+        case 'excel_document': data_ = zef.ET.ExcelDocument(content=signed_data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerpointDocument(content=signed_data['content'])
+        case _: raise ValueError(f"Unsupported type: {signed_data['type']}")
+    
+    # Call strip_embedded_data as function, not through pipe
+    stripped = zef.strip_embedded_data(data_)
+    
+    match signed_data['type']:
+        case 'png': return {'type': 'png', 'content': bytes(stripped.data_as_bytes())}
+        case 'jpg': return {'type': 'jpg', 'content': bytes(stripped.data_as_bytes())}
+        case 'pdf': return {'type': 'pdf', 'content': bytes(stripped.data_as_bytes())}
+        case 'word_document': return {'type': 'word_document', 'content': bytes(stripped.content)}
+        case 'excel_document': return {'type': 'excel_document', 'content': bytes(stripped.content)}
+        case 'powerpoint_document': return {'type': 'powerpoint_document', 'content': bytes(stripped.content)}
+        case _: raise ValueError(f"Unsupported type: {signed_data['type']}")
 
