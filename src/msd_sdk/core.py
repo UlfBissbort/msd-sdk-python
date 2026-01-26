@@ -11,15 +11,36 @@ def _to_native_python_hard(data):
     """
     import zef
     ptype = zef.primary_type(data)
-    match ptype:
-        case zef.String: return str(data)
-        case zef.Int: return int(data)
-        case zef.Float: return float(data)
-        case zef.Bool: return bool(data)
-        case zef.Nil: return None
-        case zef.Dict: return { _to_native_python_hard(k): _to_native_python_hard(v) for k, v in data.items() }
-        case zef.Array: return [_to_native_python_hard(item) for item in data]
-        case _: raise ValueError(f"Unsupported type in _to_native_python_hard: {ptype}")
+    
+    # String types
+    if ptype == zef.String:
+        return str(data)
+    
+    # Int types (Int, Int32, Int64, etc.)
+    if ptype in (zef.Int, getattr(zef, 'Int32', None), getattr(zef, 'Int64', None)):
+        return int(data)
+    
+    # Float types (Float, Float32, Float64, etc.)
+    if ptype in (zef.Float, getattr(zef, 'Float32', None), getattr(zef, 'Float64', None)):
+        return float(data)
+    
+    # Bool
+    if ptype == zef.Bool:
+        return bool(data)
+    
+    # Nil
+    if ptype == zef.Nil:
+        return None
+    
+    # Dict
+    if ptype == zef.Dict:
+        return {_to_native_python_hard(k): _to_native_python_hard(v) for k, v in data.items()}
+    
+    # Array/List
+    if ptype == zef.Array:
+        return [_to_native_python_hard(item) for item in data]
+    
+    raise ValueError(f"Unsupported type in _to_native_python_hard: {ptype}")
 
 
 
