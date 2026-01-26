@@ -1,57 +1,42 @@
 """
-MSD SDK - Python SDK for Meta Structured Data
+MSD SDK - Sign and verify structured data with Ed25519 signatures.
 
-Package Structure & Import System Explanation
-=============================================
-
-This __init__.py serves as the public interface for the msd_sdk package.
-Here's how Python's import system works with this module:
-
-1. PACKAGE INITIALIZATION:
-   When you write `import msd_sdk`, Python executes this __init__.py file.
-   Everything defined or imported here becomes accessible as `msd_sdk.xxx`.
-
-2. RE-EXPORTING FROM SUBMODULES:
-   The core functions (key_from_env, create_granule, etc.) are defined in
-   `msd_sdk/core.py` but we import and re-export them here. This allows:
-   
-       import msd_sdk as msd
-       msd.create_granule(...)  # Works! Even though it's defined in core.py
-   
-   This pattern keeps the implementation organized in separate files while
-   providing a clean, flat API to users.
-
-3. THE __all__ LIST:
-   __all__ defines what gets exported when someone writes:
-   
-       from msd_sdk import *
-   
-   Only names listed in __all__ will be imported. This:
-   - Prevents internal/private names from polluting the namespace
-   - Documents the public API explicitly
-   - Allows linters to warn about unused imports
-
-4. EAGER ZEF VERIFICATION:
-   The zef dependency is verified at import time. If zef-core is not
-   installed, the import will fail immediately with a clear error message.
-   This ensures users know about the missing dependency right away.
-
-Usage Examples:
-    # Standard import (recommended)
+Quick Start
+-----------
     import msd_sdk as msd
-    msd.create_granule(data, metadata, key)
     
-    # Direct function import
-    from msd_sdk import create_granule, verify
-    create_granule(data, metadata, key)
-    
-    # Star import (uses __all__)
-    from msd_sdk import *
-    create_granule(data, metadata, key)  # Available
-    _zef  # Not available (not in __all__)
+    key = msd.generate_key_pair()
+    signed = msd.create_granule({"msg": "hello"}, {"author": "alice"}, key)
+    assert msd.verify(signed)
+
+Core Functions
+--------------
+    create_granule     - Sign data with metadata, returns a granule
+    verify             - Verify a granule's signature
+    content_hash       - Get BLAKE3 Merkle hash of any data
+
+Key Management
+--------------
+    generate_key_pair  - Create identity or working keys
+    save_key           - Save key to file (JSON format)
+    load_key           - Load key from file
+    key_from_env       - Load key from environment variable
+    get_key_directory  - Get OS-appropriate key storage path
+    is_endorsed        - Check if key has valid endorsement chain
+    get_endorsement_chain - Get full chain from root to key
+    add_trust_anchor   - Add custom trusted root key
+
+File Embedding
+--------------
+    sign_and_embed     - Embed signature in PNG/JPG/PDF/DOCX/XLSX/PPTX
+    extract_metadata   - Read embedded metadata from file
+    extract_signature  - Read embedded signature from file
+    strip_metadata_and_signature - Remove embedded data, get original
+
+Documentation: See docs/overview.md and docs/key-management.md
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 
 def _verify_zef_installation():
