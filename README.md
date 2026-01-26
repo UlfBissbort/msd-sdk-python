@@ -4,6 +4,8 @@ Python SDK for Meta Structured Data.
 
 📖 **[Read the full SDK overview](docs/overview.md)** for architecture, design decisions, and detailed documentation.
 
+🔑 **[Key Management Guide](docs/key-management.md)** for generating keys, trust hierarchies, and security best practices.
+
 ## Installation
 
 ```bash
