@@ -120,16 +120,43 @@ def verify(granule: dict) -> bool:
     return bool(result)
 
 
+
+
 def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
-    raise NotImplementedError("sign_and_embed is not yet implemented")
+    import zef
+    match data['type']:
+        case 'png': data_ = zef.PngImage(data['bytes'])        
+        case _: raise ValueError(f"Unsupported image type: {data['type']}")
+    
+    
+    timestamp = zef.now()
+    key_internal = zef.from_json_like(key)
+
+    # this should NOT contain the actual image data
+    binary_data_to_embed = (zef.create_signed_granule(data_, metadata, timestamp, key_internal) 
+        | zef.remove('data') 
+        | zef.to_bytes
+        | zef.collect
+    )
+
+    
+    signed = zef.embed_data(data_, binary_data_to_embed)
+    match data['type']:
+        case 'png': return {'type': 'png', 'bytes': bytes(signed.data_as_bytes())}
+        case _: raise ValueError(f"Unsupported image type: {data['type']}")
+
 
 
 def extract_metadata(signed_data: dict) -> dict:
     raise NotImplementedError("extract_metadata is not yet implemented")
 
 
+
+
 def extract_signature(signed_data: dict) -> dict:
     raise NotImplementedError("extract_signature is not yet implemented")
+
+
 
 
 def strip_metadata_and_signature(signed_data: dict) -> dict:
