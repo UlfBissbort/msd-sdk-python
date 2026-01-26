@@ -143,10 +143,10 @@ my_content_hash = msd.content_hash(data)
 The mapping from hash → full value can be maintained via hash stores (dicts/maps), enabling content-addressed storage and deduplication.
 
 ### Embedding Signatures in Images, PDFs and other Documents
-- granules are a container data structures which contain data, metadata, and signature alongside each other
-- granules can be saved in `.msd` files and provide an efficient binary format for storage and transmission. But your system and existing programs do not know how to interpret them.
+- Granules are container data structures which contain data, metadata, and signature alongside each other
+- Granules can be saved in `.msd` files and provide an efficient binary format for storage and transmission. But your system and existing programs do not know how to interpret them.
 - Sometimes you want to attach metadata and signatures to existing file formats like images (PNG, JPEG), PDFs, audio files, video files and send them to other people or systems.
-- For these cases, MSD also provides tools to embed metadata and signatures **into** certain file formats, but still keeping the original file content intact and viewable by standard programs.
+- For these cases, MSD also provides tools to embed metadata and signatures **into** certain file formats, while keeping the original file content intact and viewable by standard programs.
 - Supported formats: 
   - PNG images
   - JPG images
@@ -156,7 +156,7 @@ The mapping from hash → full value can be maintained via hash stores (dicts/ma
   - PowerPoint presentations (PPTX)
 
 #### ⚠️ Warning ⚠️
-- some programs or platforms may strip out the attached metadata when re-saving or re-exporting the files.
+- Some programs or platforms may strip out the attached metadata when re-saving or re-exporting the files.
 - A MSD signature applies to exactly one fixed content version of a document. Editing the content in the slightest way invalidates the signature
 
 ```python
@@ -196,7 +196,7 @@ is_valid = msd.verify(signed_png_image)
 #### Removing Embedded Signatures and Metadata
 
 ```python
-clean_image = msd.
+clean_image = msd.strip_signature(signed_png_image)
 ```
 
 
