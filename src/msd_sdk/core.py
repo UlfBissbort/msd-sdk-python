@@ -125,9 +125,13 @@ def verify(granule: dict) -> bool:
 def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
     import zef
     match data['type']:
-        case 'png': data_ = zef.PngImage(data['content'])        
-        case _: raise ValueError(f"Unsupported image type: {data['type']}")
-    
+        case 'png': data_ = zef.PngImage(data['content'])
+        case 'jpg': data_ = zef.JpgImage(data['content'])
+        case 'pdf': data_ = zef.PDF(data['content'])
+        case 'word_document': data_ = zef.ET.WordDocument(content=data['content'])
+        case 'excel_document': data_ = zef.ET.ExcelDocument(content=data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerPointDocument(content=data['content'])
+        case _: raise ValueError(f"Unsupported type in msd_sdk.sign_and_embed: {data['type']}")
     
     timestamp = zef.now()
     key_internal = zef.from_json_like(key)

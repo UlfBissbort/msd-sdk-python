@@ -174,11 +174,11 @@ The returned image with the embedded signature is also of the form
 
 The same syntax works for other supported formats with respective MIME types:
 - `png`
-- `jpeg`
+- `jpg`
 - `pdf`
-- `word-document`
-- `excel-document`
-- `powerpoint-document`
+- `word_document`
+- `excel_document`
+- `powerpoint_document`
 
 #### Extracting and Verifying Embedded Signatures
 
