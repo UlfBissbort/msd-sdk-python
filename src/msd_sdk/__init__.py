@@ -93,6 +93,10 @@ from msd_sdk.core import (
     create_granule,
     content_hash,
     verify,
+    sign_and_embed,
+    extract_metadata,
+    extract_signature,
+    strip_metadata_and_signature,
 )
 
 # __all__ explicitly declares the public API of this package.
@@ -104,6 +108,10 @@ __all__ = [
     "create_granule", 
     "content_hash",
     "verify",
+    "sign_and_embed",
+    "extract_metadata",
+    "extract_signature",
+    "strip_metadata_and_signature",
 ]
 
 

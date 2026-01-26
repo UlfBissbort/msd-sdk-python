@@ -125,7 +125,7 @@ def verify(granule: dict) -> bool:
 def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
     import zef
     match data['type']:
-        case 'png': data_ = zef.PngImage(data['bytes'])        
+        case 'png': data_ = zef.PngImage(data['content'])        
         case _: raise ValueError(f"Unsupported image type: {data['type']}")
     
     
@@ -142,7 +142,7 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
     
     signed = zef.embed_data(data_, binary_data_to_embed)
     match data['type']:
-        case 'png': return {'type': 'png', 'bytes': bytes(signed.data_as_bytes())}
+        case 'png': return {'type': 'png', 'content': bytes(signed.data_as_bytes())}
         case _: raise ValueError(f"Unsupported image type: {data['type']}")
 
 
