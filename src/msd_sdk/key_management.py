@@ -159,19 +159,3 @@ def get_endorsement_chain(key: dict) -> list:
     """
     raise NotImplementedError("get_endorsement_chain is not yet implemented")
 
-
-def add_trust_anchor(name: str, public_key: str) -> None:
-    """
-    Add a custom trust anchor.
-    
-    By default, only the MSD platform root is trusted. Add custom
-    anchors to trust keys from other organizations:
-    
-        msd.add_trust_anchor(
-            name="Acme Corp",
-            public_key="🔑-a1b2c3d4e5f67890..."
-        )
-    
-    After adding, keys endorsed by Acme's root will be considered trusted.
-    """
-    raise NotImplementedError("add_trust_anchor is not yet implemented")

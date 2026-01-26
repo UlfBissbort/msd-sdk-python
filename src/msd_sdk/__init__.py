@@ -24,7 +24,6 @@ Key Management
     get_key_directory  - Get OS-appropriate key storage path
     is_endorsed        - Check if key has valid endorsement chain
     get_endorsement_chain - Get full chain from root to key
-    add_trust_anchor   - Add custom trusted root key
 
 File Embedding
 --------------
@@ -92,7 +91,6 @@ from msd_sdk.key_management import (
     get_key_directory,
     is_endorsed,
     get_endorsement_chain,
-    add_trust_anchor,
 )
 
 # __all__ explicitly declares the public API of this package.
@@ -116,7 +114,6 @@ __all__ = [
     "get_key_directory",
     "is_endorsed",
     "get_endorsement_chain",
-    "add_trust_anchor",
 ]
 
 

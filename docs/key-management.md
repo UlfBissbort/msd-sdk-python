@@ -301,18 +301,8 @@ The chain shows: **Root → endorses → Identity Key → endorses → Working K
 
 ## Configuring Trust Anchors
 
-By default, the SDK trusts the MSD platform's root key. You can add custom roots:
+By default, the SDK trusts the MSD platform's root key. If required in future, additional trust anchors can be configured programmatically or via environment variables.
 
-```python
-# Add your organization's root as a trust anchor
-msd.add_trust_anchor(
-    name="Acme Corp Internal",
-    public_key="🔑-a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890"
-)
-
-# Now signatures from Acme's key hierarchy are trusted
-result = msd.verify(acme_signed_data)  # valid if chain leads to Acme root
-```
 
 ### Environment-Based Configuration
 
@@ -398,9 +388,6 @@ msd.is_endorsed(key) -> bool
 
 # Get full endorsement chain
 msd.get_endorsement_chain(key) -> list
-
-# Add custom trust anchor
-msd.add_trust_anchor(name, public_key)
 ```
 
 ---
@@ -436,7 +423,7 @@ for artifact in build_artifacts:
 
 | Issue | Solution |
 |-------|----------|
-| "Key not endorsed by trusted root" | Add appropriate trust anchor with `msd.add_trust_anchor()` |
+| "Key not endorsed by trusted root" | Add appropriate trust anchor |
 | "Delegated key expired" | Generate new working key from identity key |
 | "Cannot verify offline" | Ensure MSD root public key is bundled (default) |
 | "Platform unreachable" | Use `register_with_platform=False` for local-only keys |
