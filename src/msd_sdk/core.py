@@ -146,12 +146,14 @@ def content_hash(data) -> str:
     return zef.merkle_hash(data)
 
 
-def verify(granule: dict) -> bool:
+def _verify_granule(granule: dict) -> bool:
     """
-    Verify the signature of an MSD Granule.
+    Verify the signature of an MSD SignedGranule dict.
+    
+    Internal function - use verify() for the public API.
     
     Args:
-        granule: A signed granule dictionary (from create_granule or loaded from storage).
+        granule: A signed granule dictionary with __type='ET.SignedGranule'.
     
     Returns:
         True if the signature is valid, False otherwise.
@@ -161,6 +163,144 @@ def verify(granule: dict) -> bool:
     granule_internal = zef.from_json_like(granule)
     result = granule_internal | zef.verify_granite_signature | zef.collect
     return bool(result)
+
+
+def _parse_to_zef_type(data: dict):
+    """
+    Parse a file dict to its corresponding Zef type.
+    
+    Args:
+        data: A dict with 'type' and 'content' keys.
+    
+    Returns:
+        The corresponding Zef type (PngImage, JpgImage, PDF, etc.)
+    
+    Raises:
+        ValueError: If the type is not supported.
+    """
+    import zef
+    
+    match data['type']:
+        case 'png': return zef.PngImage(data['content'])
+        case 'jpg': return zef.JpgImage(data['content'])
+        case 'pdf': return zef.PDF(data['content'])
+        case 'word_document': return zef.ET.WordDocument(content=data['content'])
+        case 'excel_document': return zef.ET.ExcelDocument(content=data['content'])
+        case 'powerpoint_document': return zef.ET.PowerpointDocument(content=data['content'])
+        case _: raise ValueError(
+            f"Unsupported file type: '{data['type']}'. "
+            f"Supported types: png, jpg, pdf, word_document, excel_document, powerpoint_document"
+        )
+
+
+def _verify_file(signed_data: dict) -> bool:
+    """
+    Verify the embedded signature in a signed file.
+    
+    Internal function - use verify() for the public API.
+    
+    Args:
+        signed_data: A dict with 'type' and 'content' keys containing a signed file.
+    
+    Returns:
+        True if the signature is valid, False otherwise.
+    
+    Raises:
+        ValueError: If no embedded signature is found or file type is unsupported.
+    """
+    import zef
+    
+    # 1. Parse to Zef type
+    typed_file = _parse_to_zef_type(signed_data)
+    
+    # 2. Extract embedded granule data (without 'data' field)
+    embedded_bytes = typed_file | zef.extract_embedded_data | zef.collect
+    
+    if embedded_bytes is None or embedded_bytes == zef.Nil:
+        raise ValueError("No embedded MSD signature found in this file")
+    
+    granule_without_data = zef.bytes_to_zef_value(embedded_bytes)
+    
+    # 3. Strip embedded data to get clean content
+    clean_file = zef.strip_embedded_data(typed_file)
+    
+    # 4. Insert clean data into granule to create complete structure
+    complete_granule = zef.insert(granule_without_data, 'data', clean_file)
+    
+    # 5. Verify signature
+    result = complete_granule | zef.verify_granite_signature | zef.collect
+    return bool(result)
+
+
+def verify(data: dict) -> bool:
+    """
+    Verify the signature of a granule or signed file.
+    
+    Supports two input types:
+    
+    1. SignedGranule dict (from create_granule):
+       {'__type': 'ET.SignedGranule', 'data': ..., 'signature': ..., ...}
+    
+    2. File dict with embedded signature (from sign_and_embed):
+       {'type': 'png'|'jpg'|'pdf'|..., 'content': bytes}
+    
+    Args:
+        data: Either a SignedGranule dict or a file dict with embedded signature.
+    
+    Returns:
+        True if the signature is valid, False otherwise.
+    
+    Raises:
+        ValueError: If the input format is not recognized, the file type is
+                    unsupported, or no embedded signature is found.
+    
+    Examples:
+        # Verify a granule
+        granule = msd.create_granule(data, metadata, key)
+        assert msd.verify(granule) == True
+        
+        # Verify a signed file
+        signed_png = msd.sign_and_embed({'type': 'png', 'content': bytes}, metadata, key)
+        assert msd.verify(signed_png) == True
+    """
+    # Handle both native Python dicts and Zef dict types
+    # Zef dicts may not have .get() and hasattr may fail
+    
+    # Try to get __type field
+    type_field = None
+    try:
+        type_field = data['__type']
+        # Convert Zef String to Python str if needed
+        type_field = str(type_field)
+    except (KeyError, TypeError):
+        pass
+    
+    # Case 1: SignedGranule dict
+    if type_field == 'ET.SignedGranule':
+        return _verify_granule(data)
+    
+    # Case 2: File dict with 'type' and 'content'
+    has_type = False
+    has_content = False
+    try:
+        _ = data['type']
+        has_type = True
+    except (KeyError, TypeError):
+        pass
+    try:
+        _ = data['content']
+        has_content = True
+    except (KeyError, TypeError):
+        pass
+    
+    if has_type and has_content:
+        return _verify_file(data)
+    
+    raise ValueError(
+        "verify() expects either a SignedGranule dict (with '__type': 'ET.SignedGranule') "
+        "or a file dict (with 'type' and 'content' keys). "
+        "Got keys: " + str(list(data.keys()))
+    )
 
 
 

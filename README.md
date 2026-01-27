@@ -163,6 +163,26 @@ is_valid = msd.verify(my_granule)  # returns True or False
 
 Returns `True` if the signature is valid for the data, `False` if tampered.
 
+#### Verifying Signed Files
+
+`verify()` also works directly on files with embedded signatures:
+
+```python
+# Sign and embed into a file
+signed_png = msd.sign_and_embed(
+    {'type': 'png', 'content': png_bytes},
+    {'author': 'Alice'},
+    my_key
+)
+
+# Verify the embedded signature
+is_valid = msd.verify(signed_png)  # returns True or False
+```
+
+This works for all supported file types: PNG, JPG, PDF, DOCX, XLSX, PPTX.
+
+If the file has no embedded signature, `verify()` raises a `ValueError`.
+
 ### 4. Content Hash (without signature)
 
 ```python
