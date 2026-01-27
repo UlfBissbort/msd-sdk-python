@@ -35,7 +35,7 @@ File Embedding
 Documentation: See docs/overview.md and docs/key-management.md
 """
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def _verify_zef_installation():
