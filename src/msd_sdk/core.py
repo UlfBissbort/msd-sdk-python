@@ -1,6 +1,7 @@
 """Core API functions for MSD SDK."""
 
 import json
+import time
 
 
 def _to_native_python_hard(data):
@@ -337,6 +338,56 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
         case 'excel_document': return {'type': 'excel_document', 'content': bytes(signed.content)}
         case 'powerpoint_document': return {'type': 'powerpoint_document', 'content': bytes(signed.content)}
         case _: raise ValueError(f"Unsupported image type: {data['type']}")
+
+
+
+
+def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
+    """
+    This function is for singing and adding metadata to data in the shape of a regular
+    Python dict. It is a distinct function from sign_and_embed which 
+    deals with signing and embedding metadata into various binary formats (PNG, JPG, PDF,
+    Word, Excel, PowerPoint) where the metadata and signature is not directly visible
+    to the typical user.
+
+    The function returns a new dict which in addition to the existing key-value pairs, 
+    contains the `__msd` key and metadata and signature information contained in hidden form
+    in an emoji.
+    """
+    import zef
+    
+    if not isinstance(data, dict):
+        raise ValueError("sign_and_embed_dict expects a dictionary as input")
+
+    if '__msd' in data:
+        raise ValueError("Input data already contains an '__msd' key, cannot embed MSD data without overwriting existing key")
+    
+    if not isinstance(metadata, dict):
+        raise ValueError("Metadata must be a dictionary")
+
+    timestamp = zef.now()
+    key_internal = zef.from_json_like(key)
+    granule = zef.create_signed_granule(data, metadata, timestamp, key_internal)
+    
+    sig_and_metadata = {
+        'metadata': granule['metadata'],
+        'signature_time': granule['signature_time'],
+        'signature': granule['signature'],
+        'key': granule['key']
+    }
+
+    sig_and_metadata_bytes = zef.collect(sig_and_metadata).to_bytes()
+    sig_and_metadata_bytes_compressed = zef.zstd_compress(sig_and_metadata_bytes)
+    sig_and_metadata_bytes_compressed_b64 = zef.to_base64(sig_and_metadata_bytes_compressed.compressed_bytes)
+    encoded = zef.encode_secret_string_in_emoji(sig_and_metadata_bytes_compressed_b64, '🔏')
+
+    return {
+        **data,
+        '__msd': str(encoded)
+    }
+
+    
+
 
 
 
