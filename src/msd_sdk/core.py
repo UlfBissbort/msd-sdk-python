@@ -166,6 +166,63 @@ def _verify_granule(granule: dict) -> bool:
     return bool(result)
 
 
+def _verify_dict(signed_dict_data: dict) -> bool:
+    """
+    Verify the embedded signature in a dict signed with sign_and_embed_dict.
+    
+    Internal function - use verify() for the public API.
+    
+    Reconstructs the full SignedGranule by:
+    1. Extracting sig_and_metadata from the __msd emoji encoding
+    2. Recovering the original data (dict minus __msd key)
+    3. Building a complete SignedGranule with data + sig_and_metadata
+    4. Verifying the signature
+    
+    Args:
+        signed_dict_data: A dict with an '__msd' key from sign_and_embed_dict.
+    
+    Returns:
+        True if the signature is valid, False otherwise.
+    
+    Raises:
+        ValueError: If no '__msd' key is found.
+    """
+    import zef
+    
+    if '__msd' not in signed_dict_data:
+        raise ValueError("No '__msd' key found in dict — this dict was not signed with sign_and_embed_dict")
+    
+    emoji_str = signed_dict_data['__msd']
+    
+    # 1. Decode the embedded sig_and_metadata
+    sig_and_metadata_zef = (
+        emoji_str 
+        | zef.decode_secret_string_in_emoji
+        | zef.base64_to_bytes
+        | zef.insert_into(zef.ET.ZstdCompressed(), 'compressed_bytes')
+        | zef.zstd_decompress
+        | zef.bytes_to_zef_value
+        | zef.to_json_like
+        | zef.collect
+    )
+    sig_and_metadata_py = _to_native_python_hard(sig_and_metadata_zef)
+    
+    # 2. Recover original data (everything except __msd)
+    original_data = {k: v for k, v in signed_dict_data.items() if k != '__msd'}
+    
+    # 3. Build a complete SignedGranule dict and convert to Entity via from_json_like
+    granule_dict = {
+        '__type': 'ET.SignedGranule',
+        'data': original_data,
+        **sig_and_metadata_py,
+    }
+    granule_entity = zef.from_json_like(granule_dict)
+    
+    # 4. Verify
+    result = granule_entity | zef.verify_granite_signature | zef.collect
+    return bool(result)
+
+
 def _parse_to_zef_type(data: dict):
     """
     Parse a file dict to its corresponding Zef type.
@@ -235,18 +292,22 @@ def _verify_file(signed_data: dict) -> bool:
 
 def verify(data: dict) -> bool:
     """
-    Verify the signature of a granule or signed file.
+    Verify the signature of a granule, signed dict, or signed file.
     
-    Supports two input types:
+    Supports three input types:
     
     1. SignedGranule dict (from create_granule):
        {'__type': 'ET.SignedGranule', 'data': ..., 'signature': ..., ...}
     
-    2. File dict with embedded signature (from sign_and_embed):
+    2. Dict with embedded signature (from sign_and_embed_dict):
+       {'x': 42, '__msd': '🔏...'}
+    
+    3. File dict with embedded signature (from sign_and_embed):
        {'type': 'png'|'jpg'|'pdf'|..., 'content': bytes}
     
     Args:
-        data: Either a SignedGranule dict or a file dict with embedded signature.
+        data: A SignedGranule dict, a dict with __msd key, or a file dict
+              with embedded signature.
     
     Returns:
         True if the signature is valid, False otherwise.
@@ -259,6 +320,10 @@ def verify(data: dict) -> bool:
         # Verify a granule
         granule = msd.create_granule(data, metadata, key)
         assert msd.verify(granule) == True
+        
+        # Verify a signed dict
+        signed_dict = msd.sign_and_embed_dict(data, metadata, key)
+        assert msd.verify(signed_dict) == True
         
         # Verify a signed file
         signed_png = msd.sign_and_embed({'type': 'png', 'content': bytes}, metadata, key)
@@ -280,7 +345,18 @@ def verify(data: dict) -> bool:
     if type_field == 'ET.SignedGranule':
         return _verify_granule(data)
     
-    # Case 2: File dict with 'type' and 'content'
+    # Case 2: Dict signed with sign_and_embed_dict (has __msd key)
+    has_msd = False
+    try:
+        _ = data['__msd']
+        has_msd = True
+    except (KeyError, TypeError):
+        pass
+    
+    if has_msd:
+        return _verify_dict(data)
+    
+    # Case 3: File dict with 'type' and 'content'
     has_type = False
     has_content = False
     try:
@@ -298,7 +374,8 @@ def verify(data: dict) -> bool:
         return _verify_file(data)
     
     raise ValueError(
-        "verify() expects either a SignedGranule dict (with '__type': 'ET.SignedGranule') "
+        "verify() expects a SignedGranule dict (with '__type': 'ET.SignedGranule'), "
+        "a dict with embedded signature (with '__msd' key), "
         "or a file dict (with 'type' and 'content' keys). "
         "Got keys: " + str(list(data.keys()))
     )

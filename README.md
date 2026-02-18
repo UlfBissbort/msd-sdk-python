@@ -155,33 +155,53 @@ my_granule = msd.create_granule(data, metadata, my_key)
 }
 ```
 
-### 3. Verify a Granule
+### 3. Verify a Signature
+
+`verify()` checks whether a signature is valid — i.e., whether the data has been tampered with since signing. It works on all three signed data types:
+
+#### Verifying a Granule
 
 ```python
-is_valid = msd.verify(my_granule)  # returns True or False
+granule = msd.create_granule(data, metadata, my_key)
+
+is_valid = msd.verify(granule)  # returns True or False
 ```
 
-Returns `True` if the signature is valid for the data, `False` if tampered.
-
-#### Verifying Signed Files
-
-`verify()` also works directly on files with embedded signatures:
+#### Verifying a Signed Dict
 
 ```python
-# Sign and embed into a file
+signed_dict = msd.sign_and_embed_dict(
+    {"message": "Hello", "count": 42},
+    {"creator": "Alice"},
+    my_key
+)
+
+is_valid = msd.verify(signed_dict)  # True
+
+# Tamper with the data — verification fails
+signed_dict["count"] = 99
+is_valid = msd.verify(signed_dict)  # False
+```
+
+#### Verifying a Signed File
+
+```python
 signed_png = msd.sign_and_embed(
     {'type': 'png', 'content': png_bytes},
     {'author': 'Alice'},
     my_key
 )
 
-# Verify the embedded signature
-is_valid = msd.verify(signed_png)  # returns True or False
+is_valid = msd.verify(signed_png)  # True
 ```
 
 This works for all supported file types: PNG, JPG, PDF, DOCX, XLSX, PPTX.
 
-If the file has no embedded signature, `verify()` raises a `ValueError`.
+#### Behavior
+
+- Returns `True` if the signature is valid for the data
+- Returns `False` if the data has been modified since signing
+- Raises `ValueError` if the input format is not recognized or has no embedded signature
 
 ### 4. Content Hash (without signature)
 
@@ -227,6 +247,16 @@ sig_info = msd.extract_signature(signed_dict)
 ```
 
 Both `extract_metadata` and `extract_signature` automatically detect whether the input is a signed dict (has `__msd` key) or a signed binary file (has `type` and `content` keys) and handle both cases.
+
+#### Verifying a Signed Dict
+
+```python
+is_valid = msd.verify(signed_dict)  # True — signature matches data
+
+# If someone tampers with the data, verification fails:
+signed_dict["count"] = 999
+is_valid = msd.verify(signed_dict)  # False
+```
 
 ### Embedding Signatures in Images, PDFs and other Documents
 - Granules are container data structures which contain data, metadata, and signature alongside each other
