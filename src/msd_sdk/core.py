@@ -391,13 +391,54 @@ def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
 
 
 
+def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
+    """
+    Extract the full sig_and_metadata structure from a dict that was signed
+    with sign_and_embed_dict. Reverses the encoding chain:
+    emoji → decode → base64 → decompress → bytes → data.
+    
+    Returns:
+        The decoded sig_and_metadata dict with keys:
+        'metadata', 'signature_time', 'signature', 'key'.
+    
+    Raises:
+        ValueError: If no '__msd' key is found.
+    """
+    import zef
+    
+    if '__msd' not in signed_dict_data:
+        raise ValueError("No '__msd' key found in dict — this dict was not signed with sign_and_embed_dict")
+    
+    emoji_str = signed_dict_data['__msd']
+    
+    # Reverse the encoding chain from sign_and_embed_dict:
+    # 1. Decode from emoji → base64 string
+    # 2. Base64 → raw compressed bytes
+    # 3. Wrap in ET.ZstdCompressed entity → decompress → original bytes
+    # 4. Bytes → Zef value → json-like Python dict
+    result = (
+        emoji_str 
+        | zef.decode_secret_string_in_emoji
+        | zef.base64_to_bytes
+        | zef.insert_into(zef.ET.ZstdCompressed(), 'compressed_bytes')
+        | zef.zstd_decompress
+        | zef.bytes_to_zef_value
+        | zef.to_json_like
+        | zef.collect
+    )
+    
+    return _to_native_python_hard(result)
+
+
 def extract_metadata(signed_data: dict) -> dict:
     """
-    Extract metadata from a signed media file (PNG, JPG, PDF, etc.).
+    Extract metadata from a signed media file (PNG, JPG, PDF, etc.)
+    or from a dict signed with sign_and_embed_dict.
     
     Args:
-        signed_data: A dict with 'type' and 'content' keys, where content
-                     is the binary data of the signed file.
+        signed_data: Either:
+            - A dict with 'type' and 'content' keys (binary file), or
+            - A dict with an '__msd' key (from sign_and_embed_dict).
     
     Returns:
         The metadata dictionary that was attached during signing.
@@ -407,6 +448,12 @@ def extract_metadata(signed_data: dict) -> dict:
     """
     import zef
     
+    # Case 1: Dict signed with sign_and_embed_dict
+    if '__msd' in signed_data:
+        msd_data = _extract_msd_from_dict(signed_data)
+        return msd_data.get('metadata', {})
+    
+    # Case 2: Binary file with embedded signature
     match signed_data['type']:
         case 'png': data_ = zef.PngImage(signed_data['content'])
         case 'jpg': data_ = zef.JpgImage(signed_data['content'])
@@ -432,7 +479,57 @@ def extract_metadata(signed_data: dict) -> dict:
 
 
 def extract_signature(signed_data: dict) -> dict:
-    raise NotImplementedError("extract_signature is not yet implemented")
+    """
+    Extract signature information from a signed media file (PNG, JPG, PDF, etc.)
+    or from a dict signed with sign_and_embed_dict.
+    
+    Args:
+        signed_data: Either:
+            - A dict with 'type' and 'content' keys (binary file), or
+            - A dict with an '__msd' key (from sign_and_embed_dict).
+    
+    Returns:
+        A dictionary with signature information including:
+        'signature', 'signature_time', and 'key'.
+    
+    Raises:
+        ValueError: If no embedded signature data is found.
+    """
+    import zef
+    
+    # Case 1: Dict signed with sign_and_embed_dict
+    if '__msd' in signed_data:
+        msd_data = _extract_msd_from_dict(signed_data)
+        return {
+            'signature': msd_data.get('signature'),
+            'signature_time': msd_data.get('signature_time'),
+            'key': msd_data.get('key'),
+        }
+    
+    # Case 2: Binary file with embedded signature
+    match signed_data['type']:
+        case 'png': data_ = zef.PngImage(signed_data['content'])
+        case 'jpg': data_ = zef.JpgImage(signed_data['content'])
+        case 'pdf': data_ = zef.PDF(signed_data['content'])
+        case 'word_document': data_ = zef.ET.WordDocument(content=signed_data['content'])
+        case 'excel_document': data_ = zef.ET.ExcelDocument(content=signed_data['content'])
+        case 'powerpoint_document': data_ = zef.ET.PowerpointDocument(content=signed_data['content'])
+        case _: raise ValueError(f"Unsupported type: {signed_data['type']}")
+    
+    embedded_bytes = data_ | zef.extract_embedded_data | zef.collect
+    
+    if embedded_bytes is None or (hasattr(zef, 'Nil') and embedded_bytes == zef.Nil):
+        raise ValueError("No embedded signature data found in this file")
+    
+    granule = zef.bytes_to_zef_value(embedded_bytes)
+    granule_dict = granule | zef.to_json_like | zef.collect
+    py_dict = _to_native_python_hard(granule_dict)
+    
+    return {
+        'signature': py_dict.get('signature'),
+        'signature_time': py_dict.get('signature_time'),
+        'key': py_dict.get('key'),
+    }
 
 
 
