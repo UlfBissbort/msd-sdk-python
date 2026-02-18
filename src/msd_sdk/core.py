@@ -173,7 +173,7 @@ def _verify_dict(signed_dict_data: dict) -> bool:
     Internal function - use verify() for the public API.
     
     Reconstructs the full SignedGranule by:
-    1. Extracting sig_and_metadata from the __msd emoji encoding
+    1. Extracting sig_and_metadata from the __msd Unicode steganography payload
     2. Recovering the original data (dict minus __msd key)
     3. Building a complete SignedGranule with data + sig_and_metadata
     4. Verifying the signature
@@ -194,7 +194,7 @@ def _verify_dict(signed_dict_data: dict) -> bool:
     
     emoji_str = signed_dict_data['__msd']
     
-    # 1. Decode the embedded sig_and_metadata
+    # 1. Decode the steganographic payload from __msd
     sig_and_metadata_zef = (
         emoji_str 
         | zef.decode_secret_string_in_emoji
@@ -299,7 +299,7 @@ def verify(data: dict) -> bool:
     1. SignedGranule dict (from create_granule):
        {'__type': 'ET.SignedGranule', 'data': ..., 'signature': ..., ...}
     
-    2. Dict with embedded signature (from sign_and_embed_dict):
+    2. Dict with Unicode steganography signature (from sign_and_embed_dict):
        {'x': 42, '__msd': '🔏...'}
     
     3. File dict with embedded signature (from sign_and_embed):
@@ -421,15 +421,18 @@ def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
 
 def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
     """
-    This function is for singing and adding metadata to data in the shape of a regular
-    Python dict. It is a distinct function from sign_and_embed which 
-    deals with signing and embedding metadata into various binary formats (PNG, JPG, PDF,
-    Word, Excel, PowerPoint) where the metadata and signature is not directly visible
-    to the typical user.
-
-    The function returns a new dict which in addition to the existing key-value pairs, 
-    contains the `__msd` key and metadata and signature information contained in hidden form
-    in an emoji.
+    Sign a plain Python dict and embed the metadata + signature using Unicode steganography.
+    
+    The cryptographic payload (metadata, timestamp, signature, public key) is compressed,
+    base64-encoded, and hidden inside invisible Unicode variation selectors attached to a
+    single emoji character (🔏). This keeps the dict clean and human-readable — the
+    signature never clutters the output.
+    
+    The returned dict contains all original key-value pairs plus an `__msd` key whose
+    value looks like a single emoji but carries the full steganographic payload.
+    Survives JSON round-trips.
+    
+    See sign_and_embed() for signing binary file formats (PNG, JPG, PDF, etc.).
     """
     import zef
     
@@ -471,7 +474,7 @@ def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
 def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
     """
     Extract the full sig_and_metadata structure from a dict that was signed
-    with sign_and_embed_dict. Reverses the encoding chain:
+    with sign_and_embed_dict. Reverses the Unicode steganography encoding chain:
     emoji → decode → base64 → decompress → bytes → data.
     
     Returns:
@@ -488,8 +491,8 @@ def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
     
     emoji_str = signed_dict_data['__msd']
     
-    # Reverse the encoding chain from sign_and_embed_dict:
-    # 1. Decode from emoji → base64 string
+    # Reverse the Unicode steganography encoding chain from sign_and_embed_dict:
+    # 1. Decode steganographic payload from emoji → base64 string
     # 2. Base64 → raw compressed bytes
     # 3. Wrap in ET.ZstdCompressed entity → decompress → original bytes
     # 4. Bytes → Zef value → json-like Python dict
@@ -509,13 +512,13 @@ def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
 
 def extract_metadata(signed_data: dict) -> dict:
     """
-    Extract metadata from a signed media file (PNG, JPG, PDF, etc.)
-    or from a dict signed with sign_and_embed_dict.
+    Extract metadata from a signed dict (Unicode steganography) or a signed
+    binary file (PNG, JPG, PDF, etc.).
     
     Args:
         signed_data: Either:
-            - A dict with 'type' and 'content' keys (binary file), or
-            - A dict with an '__msd' key (from sign_and_embed_dict).
+            - A dict with an '__msd' key (from sign_and_embed_dict), or
+            - A dict with 'type' and 'content' keys (binary file).
     
     Returns:
         The metadata dictionary that was attached during signing.
@@ -557,13 +560,13 @@ def extract_metadata(signed_data: dict) -> dict:
 
 def extract_signature(signed_data: dict) -> dict:
     """
-    Extract signature information from a signed media file (PNG, JPG, PDF, etc.)
-    or from a dict signed with sign_and_embed_dict.
+    Extract signature information from a signed dict (Unicode steganography)
+    or a signed binary file (PNG, JPG, PDF, etc.).
     
     Args:
         signed_data: Either:
-            - A dict with 'type' and 'content' keys (binary file), or
-            - A dict with an '__msd' key (from sign_and_embed_dict).
+            - A dict with an '__msd' key (from sign_and_embed_dict), or
+            - A dict with 'type' and 'content' keys (binary file).
     
     Returns:
         A dictionary with signature information including:

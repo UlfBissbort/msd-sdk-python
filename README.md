@@ -222,7 +222,7 @@ The mapping from hash → full value can be maintained via hash stores (dicts/ma
 
 ### Signing and Embedding in Dicts
 
-You can sign a plain Python dictionary and embed the metadata + signature directly as a hidden value in an `__msd` key. The signature data is invisibly encoded in emoji using Unicode variation selectors — it looks like a single emoji character but contains the full cryptographic signature. Why do this? As not to clutter the view of the user: often the metadata is a lot longer than the actual data, and we want to keep the original dict clean and human-readable.
+You can sign a plain Python dictionary and embed the metadata + signature directly in an `__msd` key using **Unicode steganography** — the signature data is hidden inside invisible Unicode variation selectors attached to a single emoji character. To the naked eye, `__msd` looks like `🔏`, but it carries the full cryptographic payload. This keeps the dict clean and human-readable: the metadata and signature are often much larger than the data itself, and steganography ensures they never clutter the output.
 
 ```python
 data = {"message": "Hello", "count": 42}
@@ -232,7 +232,7 @@ signed_dict = msd.sign_and_embed_dict(data, metadata, my_key)
 # => {"message": "Hello", "count": 42, "__msd": "🔏..."}
 ```
 
-The signed dict can be serialized to JSON, stored in databases, or transmitted over APIs — the `__msd` value survives JSON round-trips.
+The signed dict can be serialized to JSON, stored in databases, or transmitted over APIs — the steganographic `__msd` value survives JSON round-trips.
 
 #### Extracting Metadata and Signature from Dicts
 

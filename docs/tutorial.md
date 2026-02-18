@@ -166,9 +166,9 @@ h4 = msd.content_hash({"name": "Alice", "scores": [95, 87, 92]})
 
 ---
 
-## 4. Signing Dicts — The Invisible Signature 🔏
+## 4. Signing Dicts — Unicode Steganography 🔏
 
-Granules are great for storage and transmission, but sometimes you just want to sign an existing Python dict without changing its shape. `sign_and_embed_dict` tucks the signature away in a special `__msd` key, encoded as invisible Unicode variation selectors inside an emoji. The dict stays clean and human-readable.
+Granules are great for storage and transmission, but sometimes you just want to sign an existing Python dict without changing its shape. `sign_and_embed_dict` uses **Unicode steganography** to hide the full cryptographic signature inside a single emoji character (`🔏`) in a special `__msd` key. The data is tucked into invisible Unicode variation selectors — to the naked eye it looks like one emoji, but it carries the entire metadata, timestamp, and signature. This keeps your dict clean and uncluttered: the cryptographic payload never gets in the way of the actual data.
 
 ```python
 import msd_sdk as msd
@@ -199,10 +199,10 @@ print("Keys:", list(signed.keys()))
 print("Name:", signed["name"])
 print("Servings:", signed["servings"])
 
-# The __msd value looks like a single emoji to the naked eye
+# Unicode steganography: looks like a single emoji, but carries the full signature
 msd_val = signed["__msd"]
 print(f"__msd starts with: {msd_val[:1]}")
-print(f"__msd length: {len(msd_val)} characters (the signature is hidden in there!)")
+print(f"__msd length: {len(msd_val)} characters (steganographic payload)")
 
 # It survives JSON round-trips
 json_str = json.dumps(signed)
@@ -256,7 +256,7 @@ recovered = json.loads(json_str)
     ),
     ET.UnmanagedEffect(
         what='stdout',
-        content='__msd length: 437 characters (the signature is hidden in there!)'
+        content='__msd length: 437 characters (steganographic payload)'
     )
 ]
 ````
@@ -264,9 +264,9 @@ recovered = json.loads(json_str)
 
 ---
 
-## 5. Reading What's Hidden
+## 5. Extracting the Steganographic Payload
 
-You can extract the metadata and signature from a signed dict:
+Even though the signature is hidden via Unicode steganography, you can extract the metadata and signature programmatically:
 
 ```python
 import msd_sdk as msd
@@ -407,7 +407,7 @@ Any tampering with the data, the metadata or the signature will cause `verify` t
 
 ## 7. Signing Binary Files
 
-MSD can embed signatures directly into image and document files. The signed file remains viewable by standard programs — the signature is tucked into format-specific metadata regions.
+MSD can embed signatures directly into image and document files. The signed file remains viewable by standard programs — the signature is stored in format-specific metadata regions (like PNG tEXt chunks).
 
 Supported formats: **PNG, JPG, PDF, DOCX, XLSX, PPTX**.
 
@@ -491,7 +491,7 @@ print(f"Stripped PNG: {len(clean['content'])} bytes")
 | What you want to do | Function |
 |---|---|
 | Sign any data into a granule | `msd.create_granule(data, metadata, key)` |
-| Sign a dict (invisible signature) | `msd.sign_and_embed_dict(data, metadata, key)` |
+| Sign a dict (Unicode steganography) | `msd.sign_and_embed_dict(data, metadata, key)` |
 | Sign a file (PNG, PDF, etc.) | `msd.sign_and_embed({'type': ..., 'content': ...}, metadata, key)` |
 | Verify any signed data | `msd.verify(signed_data)` |
 | Extract metadata | `msd.extract_metadata(signed_data)` |
