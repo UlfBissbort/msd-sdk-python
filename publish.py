@@ -339,8 +339,26 @@ def workflow_publish(bump_type: Optional[str] = None):
     print(f"  {C.CYAN}Install:{C.END}  pip install msd-sdk=={version}")
 
     if bump_type:
-        print(f"\n  {C.DIM}Don't forget to commit the version bump:{C.END}")
-        print(f"  {C.DIM}  git add -A && git commit -m 'Release v{version}'{C.END}")
+        print()
+        try:
+            answer = input(f"  {C.BOLD}Commit version bump to git?{C.END} [Y/n] ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            answer = "n"
+            print()
+
+        if answer in ("", "y", "yes"):
+            commit_msg = f"Release v{version}"
+            step("Committing version bump...")
+            ok1, _ = run(["git", "add", "pyproject.toml", "src/msd_sdk/__init__.py"])
+            ok2, out = run(["git", "commit", "-m", commit_msg])
+            if ok1 and ok2:
+                success(f"Committed: {commit_msg}")
+            else:
+                error("Git commit failed:")
+                print(out)
+        else:
+            info(f"Skipped git commit. You can do it later:")
+            print(f"  {C.DIM}  git add -A && git commit -m 'Release v{version}'{C.END}")
 
     print()
 
