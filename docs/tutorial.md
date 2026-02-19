@@ -2,22 +2,21 @@
 
 *Sign it. Verify it. Trust it.*
 
-This is a hands-on tutorial walking through everything the MSD SDK can do.
-Every code block is **self-contained** — you can run any block on its own without running the ones before it.
+A hands-on walkthrough of the MSD SDK — using an **accounting audit trail** as the running example. Every code block is **self-contained**: run any block on its own.
 
 > **Prerequisites:** `msd-sdk` and `zef` installed in the same virtual environment.
 
 
 ---
 
-## 1. Your First Granule
+## 1. Your First Signed Invoice
 
-A **Granule** is the fundamental unit of MSD: your data bundled together with metadata, a timestamp, and a cryptographic signature. Think of it as a tamper-proof envelope.
+A **Granule** is the fundamental unit of MSD: data + metadata + timestamp + cryptographic signature, bundled into a tamper-proof envelope.
 
 ```python
 import msd_sdk as msd
 
-# A test key pair (never use this in production!)
+# Test key pair — never use in production!
 my_key = {
     '__type': 'ET.Ed25519KeyPair',
     '__uid': '🍃-8d1dc8766070c87a4bb1',
@@ -25,23 +24,50 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-data = "Hello, MSD!"
-metadata = {"author": "Tutorial", "purpose": "learning"}
+invoice = {
+    "invoice_id": "INV-2025-0042",
+    "vendor": "Acme Supplies",
+    "amount": 1250.00,
+    "currency": "EUR",
+    "line_items": [
+        {"description": "Office chairs (x5)", "amount": 750.00},
+        {"description": "Standing desks (x2)", "amount": 500.00},
+    ]
+}
 
-granule = msd.create_granule(data, metadata, my_key)
+audit = {
+    "approved_by": "CFO Jane Chen",
+    "department": "Operations",
+    "approval_date": "2025-01-15",
+}
+
+granule = msd.create_granule(invoice, audit, my_key)
 granule
 ```
 ````Result
 {
   '__type': 'ET.SignedGranule',
-  'data': 'Hello, MSD!',
-  'metadata': {'author': 'Tutorial', 'purpose': 'learning'},
-  'signature_time': {'__type': 'Time', 'zef_unix_time': '1771430628'},
+  'data': {
+    'invoice_id': 'INV-2025-0042',
+    'vendor': 'Acme Supplies',
+    'amount': 1250.0,
+    'currency': 'EUR',
+    'line_items': [
+      {'description': 'Office chairs (x5)', 'amount': 750.0},
+      {'description': 'Standing desks (x2)', 'amount': 500.0}
+    ]
+  },
+  'metadata': {
+    'approved_by': 'CFO Jane Chen',
+    'department': 'Operations',
+    'approval_date': '2025-01-15'
+  },
+  'signature_time': {'__type': 'Time', 'zef_unix_time': '1771462767'},
   'signature': {
     '__type': 'ET.Ed25519Signature',
     'signature': (
-      '🔏-3db2d49d7119790bfbfc0405cc2f3554d2e9b09695dfe2c63099a74cf3c7acc725e53d1ca10'
-      'a6afdba0e9cc4cba03fb6556b1ac9922e9e0426e5147e708da50d'
+      '🔏-51d6a835632b70579145a9fee2fe3c190ccc11daef3c27ffbb9cec1a24364e64309ae2936a4'
+      'ec10b093cbb1d7cca0c674ff8fa18b75d031dd256d771d8352208'
     )
   },
   'key': {
@@ -55,14 +81,14 @@ granule
 []
 ````
 
-The granule contains `data`, `metadata`, `signature_time`, `signature`, and `key` (public only — your private key never leaks).
+The granule contains `data` (the invoice), `metadata` (the audit trail), `signature_time`, `signature`, and `key` (public only — your private key never leaks).
 
 
 ---
 
-## 2. Verify a Granule
+## 2. Verify Before You Pay
 
-The whole point of signing is that anyone can check: *was this data tampered with?*
+Anyone with the public key can check: *has this invoice been tampered with since approval?*
 
 ```python
 import msd_sdk as msd
@@ -75,100 +101,51 @@ my_key = {
 }
 
 granule = msd.create_granule(
-    {"temperature": 22.5, "unit": "celsius"},
-    {"sensor": "living-room", "version": "1.0"},
+    {"invoice_id": "INV-2025-0042", "amount": 1250.00, "vendor": "Acme Supplies"},
+    {"approved_by": "CFO Jane Chen", "department": "Operations"},
     my_key
 )
 
-# Verify — should be True
-print("Valid:", msd.verify(granule))
-
-# Sign the same metadata but with different data
-different_data_granule = msd.create_granule(
-    {"temperature": 99.9, "unit": "celsius"},
-    {"sensor": "living-room", "version": "1.0"},
-    my_key
-)
-# Still valid — it's a properly signed granule, just with different data
-("Also valid:", msd.verify(different_data_granule))
+msd.verify(granule)
 ```
 ````Result
-('Also valid:', True)
+True
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Valid:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='True'
-    )
-]
+[]
 ````
-
-Both return `True` because both were properly signed. To see what happens when data is *tampered with after signing*, check out Section 6 below — it demonstrates tamper detection in detail.
 
 
 ---
 
-## 3. Content Hashing
+## 3. Content-Addressable Invoices
 
-Sometimes you don't need a signature — you just want a content-addressable hash. MSD uses BLAKE3 Merkle hashing, which means dicts and lists are hashed structurally (by their elements), not just as raw bytes.
+Need a unique fingerprint for deduplication or lookups — without signing? `content_hash` gives you a deterministic BLAKE3 Merkle hash.
 
 ```python
 import msd_sdk as msd
 
-# Same content → same hash
-h1 = msd.content_hash("Hello, World!")
-h2 = msd.content_hash("Hello, World!")
-print(f"hash 1: {h1}")
-print(f"hash 2: {h2}")
-print(f"Same content, same hash: {h1 == h2}")
+inv_a = msd.content_hash({"invoice_id": "INV-2025-0042", "amount": 1250.00})
+inv_b = msd.content_hash({"invoice_id": "INV-2025-0042", "amount": 1250.00})
+inv_c = msd.content_hash({"invoice_id": "INV-2025-0043", "amount": 89.99})
 
-# Different content → different hash
-h3 = msd.content_hash("Hello, World?")
-print(f"Different content, different hash: {h1 != h3}")
-
-# Works on complex structures too
-h4 = msd.content_hash({"name": "Alice", "scores": [95, 87, 92]})
-("Dict hash:", h4)
+("same invoice, same hash:", inv_a == inv_b, "different invoice, different hash:", inv_a != inv_c)
 ```
 ````Result
-('Dict hash:', Dict('🪨-46f6db59fa31299d411d927e2b0cf0f4810c7b007270d998a80fe40e21a79ed3'))
+('same invoice, same hash:', True, 'different invoice, different hash:', True)
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='hash 1: String(hash=\'🪨-47226ebc134d64d9dd49990d23ddf503794b9e972d4981bb2f9a984301c1ae5c\')'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='hash 2: String(hash=\'🪨-47226ebc134d64d9dd49990d23ddf503794b9e972d4981bb2f9a984301c1ae5c\')'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Same content, same hash: True'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Different content, different hash: True'
-    )
-]
+[]
 ````
 
 
 ---
 
-## 4. Signing Dicts — Unicode Steganography 🔏
+## 4. The Invisible Audit Trail — Unicode Steganography 🔏
 
-Granules are great for storage and transmission, but sometimes you just want to sign an existing Python dict without changing its shape. `sign_and_embed_dict` uses **Unicode steganography** to hide the full cryptographic signature inside a single emoji character (`🔏`) in a special `__msd` key. The data is tucked into invisible Unicode variation selectors — to the naked eye it looks like one emoji, but it carries the entire metadata, timestamp, and signature. This keeps your dict clean and uncluttered: the cryptographic payload never gets in the way of the actual data.
+Granules wrap your data in a new structure. But what if you want to keep the original dict shape — say, for an API response or a JSON export — while still carrying a cryptographic audit trail?
+
+`sign_and_embed_dict` hides the full signature inside a single `🔏` emoji using **Unicode steganography**. Invisible variation selectors carry the complete metadata, timestamp, and Ed25519 signature. The dict stays clean and uncluttered.
 
 ```python
 import msd_sdk as msd
@@ -181,92 +158,39 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-recipe = {
-    "name": "Pancakes",
-    "servings": 4,
-    "ingredients": ["flour", "eggs", "milk", "butter"],
-    "approved_by": "Chef Tutorial"
+payment = {
+    "invoice_id": "INV-2025-0042",
+    "amount": 1250.00,
+    "currency": "EUR",
+    "vendor": "Acme Supplies",
+    "paid_on": "2025-01-20",
 }
 
-signed = msd.sign_and_embed_dict(
-    recipe,
-    {"author": "Chef Tutorial", "license": "CC-BY-4.0"},
-    my_key
-)
+audit_trail = {
+    "approved_by": "CFO Jane Chen",
+    "reviewed_by": "Controller Bob Park",
+    "compliance_check": "passed",
+}
 
-# The original data is untouched + there's a new __msd key
-print("Keys:", list(signed.keys()))
-print("Name:", signed["name"])
-print("Servings:", signed["servings"])
+signed = msd.sign_and_embed_dict(payment, audit_trail, my_key)
 
-# Unicode steganography: looks like a single emoji, but carries the full signature
-msd_val = signed["__msd"]
-print(f"__msd starts with: {msd_val[:1]}")
-print(f"__msd length: {len(msd_val)} characters (steganographic payload)")
-
-# It survives JSON round-trips
-json_str = json.dumps(signed)
-recovered = json.loads(json_str)
-("Survived JSON roundtrip:", '__msd' in recovered)
+# The original data is untouched — plus a steganographic __msd key
+# Survives JSON round-trips
+json.loads(json.dumps(signed)) == signed
 ```
 ````Result
-('Survived JSON roundtrip:', True)
+True
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Keys:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='[\'name\', \'servings\', \'ingredients\', \'approved_by\', \'__msd\']'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Name:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Pancakes'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Servings:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='4'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='__msd starts with: 🔏'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='__msd length: 437 characters (steganographic payload)'
-    )
-]
+[]
 ````
 
 
 ---
 
-## 5. Extracting the Steganographic Payload
+## 5. Reading the Audit Trail
 
-Even though the signature is hidden via Unicode steganography, you can extract the metadata and signature programmatically:
+Extract the metadata and signature hidden inside a signed dict:
 
 ```python
 import msd_sdk as msd
@@ -279,58 +203,33 @@ my_key = {
 }
 
 signed = msd.sign_and_embed_dict(
-    {"project": "Apollo", "status": "launched"},
-    {"team": "Mission Control", "classification": "public"},
+    {"invoice_id": "INV-2025-0042", "amount": 1250.00},
+    {"approved_by": "CFO Jane Chen", "compliance_check": "passed"},
     my_key
 )
 
-# Extract just the metadata
 meta = msd.extract_metadata(signed)
-print("Metadata:", meta)
-
-# Extract the full signature details
 sig = msd.extract_signature(signed)
-print("Signature time:", sig["signature_time"])
-("Signed by key:", sig["key"]["__uid"])
+
+{
+    "audit_trail": meta,
+    "signed_at": sig["signature_time"],
+    "signing_key": sig["key"]["__uid"],
+}
 ```
 ````Result
-('Signed by key:', '🍃-8d1dc8766070c87a4bb1')
+{'audit_trail': {'approved_by': 'CFO Jane Chen', 'compliance_check': 'passed'}, 'signed_at': {'__type': 'Time', 'zef_unix_time': '1771462875'}, 'signing_key': '🍃-8d1dc8766070c87a4bb1'}
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Metadata:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='{\'team\': \'Mission Control\', \'classification\': \'public\'}'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Signature time:'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content=' '
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='{\'__type\': \'Time\', \'zef_unix_time\': \'1771429592\'}'
-    )
-]
+[]
 ````
 
 
 ---
 
-## 6. Tamper-Proof Dicts
+## 6. Catching Fraud
 
-`verify()` works on signed dicts too. Change anything in the data — a value, add a key, remove a key — and the signature breaks.
+Change anything in a signed dict — a value, add a key, remove a key — and `verify()` catches it.
 
 ```python
 import msd_sdk as msd
@@ -342,77 +241,45 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-data = {"score": 42, "player": "Alice", "level": 5}
-metadata = {"signer": "Game Master", "game": "Tutorial"}
-msd.sign_and_embed_dict(data, metadata, my_key)
+expense = {"vendor": "Acme Supplies", "amount": 1250.00, "category": "office"}
+signed = msd.sign_and_embed_dict(expense, {"approved_by": "CFO Jane Chen"}, my_key)
+
+# Untouched: valid
+original_ok = msd.verify(signed)
+
+# Inflated amount
+t1 = dict(signed); t1["amount"] = 9999.00
+inflated_ok = msd.verify(t1)
+
+# Snuck in a bonus line
+t2 = dict(signed); t2["bonus"] = 500.00
+added_ok = msd.verify(t2)
+
+# Removed the category to hide it
+t3 = {k: v for k, v in signed.items() if k != "category"}
+removed_ok = msd.verify(t3)
+
+{"original": original_ok, "inflated_amount": inflated_ok, "added_key": added_ok, "removed_key": removed_ok}
 ```
 ````Result
-{'score': 42, 'player': 'Alice', 'level': 5, '__msd': '🔏󠄻󠄼󠅅󠅦󠄟󠅇󠄲󠅜󠄱󠄻󠅅󠄺󠄱󠄹󠅊󠅅󠅃󠅄󠅜󠅁󠅑󠅔󠅁󠄷󠅉󠄵󠅂󠅝󠄺󠅚󠄿󠄿󠅧󠄡󠅔󠄵󠅉󠅊󠅕󠅝󠅡󠅄󠅠󠄸󠄱󠅛󠅟󠅧󠄵󠅠󠅪󠅠󠅛󠅓󠄡󠅗󠅑󠅈󠄾󠄼󠄦󠅞󠅘󠄸󠄡󠄢󠅘󠅇󠅝󠅇󠅀󠅜󠄥󠅣󠅢󠅥󠄟󠄨󠄹󠄲󠅝󠅣󠄡󠄱󠄱󠄦󠅠󠅒󠄤󠄸󠅔󠅚󠅟󠅀󠄡󠄴󠄱󠄴󠅁󠄱󠄿󠅁󠄱󠅉󠄶󠅪󠄹󠅕󠄶󠅛󠄾󠅜󠅉󠄹󠄹󠄶󠄳󠄠󠅟󠄴󠅧󠄺󠅅󠅙󠅩󠅞󠄻󠅞󠅙󠅝󠅡󠄺󠅜󠅕󠅜󠅟󠅅󠅛󠄲󠅆󠄲󠅃󠄴󠅢󠅃󠅞󠄡󠅨󠅇󠄾󠄿󠅜󠄾󠅚󠄢󠅗󠄤󠅛󠅟󠅔󠄹󠄷󠄺󠄾󠄾󠄨󠄵󠅜󠄢󠅚󠅩󠅇󠄺󠄾󠄺󠅅󠅕󠄡󠄾󠅈󠅗󠅡󠅩󠄷󠄤󠄤󠄴󠄵󠅅󠅃󠅓󠄳󠅣󠄽󠅟󠅑󠄦󠅄󠅤󠄠󠄣󠄻󠄺󠄧󠅘󠅕󠅪󠄷󠄢󠄲󠄥󠅜󠄩󠅦󠅖󠅕󠅇󠄨󠅖󠄿󠄷󠅈󠄧󠅄󠄧󠄣󠅦󠅖󠅃󠅥󠅕󠄨󠅣󠅑󠅄󠄠󠅢󠅄󠅕󠄸󠄸󠅠󠄨󠄢󠅦󠄥󠅤󠄠󠅀󠄺󠄩󠅁󠅗󠅨󠅅󠅘󠄠󠅞󠅞󠅧󠄳󠄹󠅤󠄱󠅂󠄹󠄹󠄱󠄲󠅙󠄱󠄾󠅗󠅗󠅅󠅗󠄳󠅗󠅕󠅅󠅃󠅟󠅅󠄼󠄳󠅘󠅀󠄿󠅨󠅄󠅃󠅣󠅩󠄢󠅑󠅔󠅪󠄽󠅝󠄿󠄡󠅛󠅉󠅢󠅞󠅖󠄥󠅈󠄥󠄥󠅆󠅊󠅉󠅪󠄥󠅘󠅉󠄛󠅪󠅤󠅝󠄧󠅣󠅠󠅚󠅃󠄧󠄟󠅇󠅞󠅕󠄾󠅉󠄠󠅥󠄢󠄾󠅈󠄱󠄦󠄩󠅡󠄟󠅦󠄾󠅔󠅖󠅓󠄨󠄤󠅄󠅅󠄤󠄦󠅂󠅕󠄹󠅑󠅈󠅩󠄨󠅄󠄾󠄻󠅝󠅪󠅤󠅚󠅩󠅈󠄲󠅑󠄛󠅃󠅪󠄟󠅨󠄛󠅢󠄢󠅆󠅓󠅑󠅑󠅧󠄨󠅊󠅪󠄱󠅣󠄸󠅪󠄳󠅆󠅅󠅇󠄥󠄢󠄹󠅣󠄾󠅣󠅢󠅅󠅃󠅗󠄽󠅂󠄲󠄱󠄱󠄢󠄴󠅓󠄛󠅪󠄢󠄳󠄱󠅆󠄨󠄱󠄺󠄷'}
+{'original': True, 'inflated_amount': False, 'added_key': False, 'removed_key': False}
 ````
 ````Side Effects
 []
 ````
-
-
-
-
-
-```python
-import msd_sdk as msd
-
-d = d = {
- 'score': 42,
- 'player': 'Alice',
- 'level': 5,
- '__msd': '🔏󠄻󠄼󠅅󠅦󠄟󠅇󠄲󠅜󠄱󠄺󠄠󠄺󠄱󠄹󠅉󠅅󠅃󠅄󠅘󠅁󠅠󠅑󠅗󠄾󠅧󠄺󠅝󠅊󠄶󠅑󠄛󠄨󠄡󠅕󠅪󠅑󠅪󠅞󠄺󠅢󠅅󠄤󠅩󠄛󠅢󠄡󠅧󠅡󠅘󠄳󠅒󠄲󠄷󠅁󠅆󠅒󠅞󠅤󠄢󠅊󠅟󠅦󠄣󠄡󠅃󠅘󠄣󠅁󠅘󠅂󠄹󠅝󠅣󠅢󠅥󠄧󠅔󠄥󠅪󠄹󠅣󠄾󠄷󠄶󠄴󠅂󠅤󠅃󠄟󠅇󠅠󠅡󠅇󠄠󠄵󠄱󠄾󠅗󠄱󠄤󠄱󠄲󠄱󠄺󠄹󠅘󠄲󠅉󠅧󠅊󠅅󠅂󠄽󠅞󠄲󠄱󠅗󠅛󠅧󠄨󠄾󠅆󠅝󠅈󠅢󠅩󠄧󠄼󠄼󠅚󠄳󠄾󠅞󠅑󠅟󠄿󠄦󠄨󠄻󠅉󠅣󠄻󠅓󠅣󠄥󠅟󠄲󠅆󠅒󠄣󠄷󠅣󠅘󠅓󠄾󠅄󠅜󠅛󠄻󠄲󠅆󠅓󠄛󠄲󠅝󠅄󠅗󠅃󠅂󠅠󠄷󠅣󠅊󠅔󠄡󠅑󠅄󠄠󠄠󠅉󠄺󠄻󠄺󠄲󠅙󠅆󠅩󠄷󠅔󠅖󠄦󠄧󠅜󠄦󠄿󠅄󠄨󠄷󠄺󠅡󠅓󠅈󠅉󠅨󠅩󠄛󠅧󠅤󠅓󠄣󠅄󠄣󠄼󠄥󠅪󠅖󠄼󠅢󠅡󠅓󠄽󠅓󠅒󠅕󠄛󠄼󠅢󠅉󠄣󠄡󠅩󠄽󠄢󠄾󠅠󠄢󠅊󠄦󠅥󠅖󠄺󠄣󠅨󠅁󠅆󠅚󠅧󠅖󠄠󠄱󠅗󠄱󠄹󠅩󠄲󠄥󠄲󠄵󠅗󠄳󠄧󠄵󠄹󠅡󠅅󠅀󠄵󠅘󠄢󠅝󠅨󠄤󠅙󠄲󠅟󠄳󠅃󠄶󠅗󠅁󠅀󠄹󠅁󠅡󠅞󠅓󠄨󠅉󠅣󠄾󠅞󠅓󠅕󠅚󠄟󠅥󠅒󠅙󠄩󠅨󠅠󠄿󠄟󠄢󠅄󠄛󠅞󠅕󠄧󠅖󠅂󠅢󠅠󠅉󠅣󠅄󠅕󠅢󠅥󠅦󠄼󠅥󠅝󠄵󠄼󠅚󠄟󠅥󠄛󠅖󠄻󠅢󠄛󠄼󠄢󠅁󠄿󠅥󠅞󠄥󠅦󠅤󠅕󠅥󠅈󠅊󠅉󠅅󠅆󠅟󠄛󠄠󠄛󠅟󠅇󠄡󠅪󠅙󠅔󠅪󠅡󠄧󠅈󠅔󠅝󠄥󠅧󠅃󠅅󠅚󠅧󠅖󠅜󠅚󠅞󠄸󠄦󠄟󠅚󠅔󠄡󠅤󠅠󠅘󠅃󠄡󠅟󠅊󠄨󠄱󠄷󠄾󠄼󠄻󠅪󠅪󠅝󠅁󠅥󠅕󠄾󠅀󠅖󠅑󠄺󠄱󠅁󠄵󠄱󠄴󠅉󠄾󠅪󠄧󠅀󠅉󠄹󠄲󠅈󠅧󠄱󠅛󠅉󠄭'
-}
-
-(msd.extract_metadata(d), msd.extract_signature(d), msd.verify(d))
-```
-````Result
-({'signer': 'Game Master', 'game': 'Tutorial'}, {'signature': {'__type': 'ET.Ed25519Signature', 'signature': '🔏-64347fe907b0aac5520e152bc1dcccff2521e74beb25f61df6f52fca8cb4625f32ee7933c93f371cef24786d9e21d47526abd7ade267e1b385c6e011ce1dad07'}, 'signature_time': {'__type': 'Time', 'zef_unix_time': '1771431332'}, 'key': {'__type': 'ET.Ed25519KeyPair', '__uid': '🍃-8d1dc8766070c87a4bb1', 'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'}}, True)
-````
-````Side Effects
-[]
-````
-
-
-Now let's try and tamper with the data
-```python
-import msd_sdk as msd
-
-d = d = {
- 'score': 43,
- 'player': 'Alice',
- 'level': 5,
- '__msd': '🔏󠄻󠄼󠅅󠅦󠄟󠅇󠄲󠅜󠄱󠄺󠄠󠄺󠄱󠄹󠅉󠅅󠅃󠅄󠅘󠅁󠅠󠅑󠅗󠄾󠅧󠄺󠅝󠅊󠄶󠅑󠄛󠄨󠄡󠅕󠅪󠅑󠅪󠅞󠄺󠅢󠅅󠄤󠅩󠄛󠅢󠄡󠅧󠅡󠅘󠄳󠅒󠄲󠄷󠅁󠅆󠅒󠅞󠅤󠄢󠅊󠅟󠅦󠄣󠄡󠅃󠅘󠄣󠅁󠅘󠅂󠄹󠅝󠅣󠅢󠅥󠄧󠅔󠄥󠅪󠄹󠅣󠄾󠄷󠄶󠄴󠅂󠅤󠅃󠄟󠅇󠅠󠅡󠅇󠄠󠄵󠄱󠄾󠅗󠄱󠄤󠄱󠄲󠄱󠄺󠄹󠅘󠄲󠅉󠅧󠅊󠅅󠅂󠄽󠅞󠄲󠄱󠅗󠅛󠅧󠄨󠄾󠅆󠅝󠅈󠅢󠅩󠄧󠄼󠄼󠅚󠄳󠄾󠅞󠅑󠅟󠄿󠄦󠄨󠄻󠅉󠅣󠄻󠅓󠅣󠄥󠅟󠄲󠅆󠅒󠄣󠄷󠅣󠅘󠅓󠄾󠅄󠅜󠅛󠄻󠄲󠅆󠅓󠄛󠄲󠅝󠅄󠅗󠅃󠅂󠅠󠄷󠅣󠅊󠅔󠄡󠅑󠅄󠄠󠄠󠅉󠄺󠄻󠄺󠄲󠅙󠅆󠅩󠄷󠅔󠅖󠄦󠄧󠅜󠄦󠄿󠅄󠄨󠄷󠄺󠅡󠅓󠅈󠅉󠅨󠅩󠄛󠅧󠅤󠅓󠄣󠅄󠄣󠄼󠄥󠅪󠅖󠄼󠅢󠅡󠅓󠄽󠅓󠅒󠅕󠄛󠄼󠅢󠅉󠄣󠄡󠅩󠄽󠄢󠄾󠅠󠄢󠅊󠄦󠅥󠅖󠄺󠄣󠅨󠅁󠅆󠅚󠅧󠅖󠄠󠄱󠅗󠄱󠄹󠅩󠄲󠄥󠄲󠄵󠅗󠄳󠄧󠄵󠄹󠅡󠅅󠅀󠄵󠅘󠄢󠅝󠅨󠄤󠅙󠄲󠅟󠄳󠅃󠄶󠅗󠅁󠅀󠄹󠅁󠅡󠅞󠅓󠄨󠅉󠅣󠄾󠅞󠅓󠅕󠅚󠄟󠅥󠅒󠅙󠄩󠅨󠅠󠄿󠄟󠄢󠅄󠄛󠅞󠅕󠄧󠅖󠅂󠅢󠅠󠅉󠅣󠅄󠅕󠅢󠅥󠅦󠄼󠅥󠅝󠄵󠄼󠅚󠄟󠅥󠄛󠅖󠄻󠅢󠄛󠄼󠄢󠅁󠄿󠅥󠅞󠄥󠅦󠅤󠅕󠅥󠅈󠅊󠅉󠅅󠅆󠅟󠄛󠄠󠄛󠅟󠅇󠄡󠅪󠅙󠅔󠅪󠅡󠄧󠅈󠅔󠅝󠄥󠅧󠅃󠅅󠅚󠅧󠅖󠅜󠅚󠅞󠄸󠄦󠄟󠅚󠅔󠄡󠅤󠅠󠅘󠅃󠄡󠅟󠅊󠄨󠄱󠄷󠄾󠄼󠄻󠅪󠅪󠅝󠅁󠅥󠅕󠄾󠅀󠅖󠅑󠄺󠄱󠅁󠄵󠄱󠄴󠅉󠄾󠅪󠄧󠅀󠅉󠄹󠄲󠅈󠅧󠄱󠅛󠅉󠄭'
-}
-
-(msd.extract_metadata(d), msd.extract_signature(d), msd.verify(d))
-
-
-
-```
-````Result
-({'signer': 'Game Master', 'game': 'Tutorial'}, {'signature': {'__type': 'ET.Ed25519Signature', 'signature': '🔏-64347fe907b0aac5520e152bc1dcccff2521e74beb25f61df6f52fca8cb4625f32ee7933c93f371cef24786d9e21d47526abd7ade267e1b385c6e011ce1dad07'}, 'signature_time': {'__type': 'Time', 'zef_unix_time': '1771431332'}, 'key': {'__type': 'ET.Ed25519KeyPair', '__uid': '🍃-8d1dc8766070c87a4bb1', 'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'}}, False)
-````
-````Side Effects
-[]
-````
-
-Any tampering with the data, the metadata or the signature will cause `verify` to return `False`.
 
 
 ---
 
-## 7. Signing Binary Files
+## 7. Signing the Receipts
 
-MSD can embed signatures directly into image and document files. The signed file remains viewable by standard programs — the signature is stored in format-specific metadata regions (like PNG tEXt chunks).
+MSD can embed signatures directly into binary files — the signed file stays viewable by standard programs.
 
 Supported formats: **PNG, JPG, PDF, DOCX, XLSX, PPTX**.
 
 ```python
 import msd_sdk as msd
+import struct, zlib
 
 my_key = {
     '__type': 'ET.Ed25519KeyPair',
@@ -421,66 +288,37 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-# Create a minimal valid 1x1 red PNG (67 bytes)
-import struct, zlib
+# Minimal 1x1 red PNG (stand-in for a scanned receipt)
 def make_tiny_png():
     sig = b'\x89PNG\r\n\x1a\n'
-    def chunk(ctype, data):
-        c = ctype + data
-        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
-    ihdr = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
-    raw = zlib.compress(b'\x00\xff\x00\x00')  # filter byte + 1 red pixel
-    return sig + chunk(b'IHDR', ihdr) + chunk(b'IDAT', raw) + chunk(b'IEND', b'')
+    def chunk(ct, d):
+        c = ct + d
+        return struct.pack('>I', len(d)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+    return sig + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b'')
 
-png_bytes = make_tiny_png()
-print(f"Original PNG: {len(png_bytes)} bytes")
+receipt_png = make_tiny_png()
 
-# Sign and embed
-signed_png = msd.sign_and_embed(
-    {'type': 'png', 'content': png_bytes},
-    {'author': 'Tutorial', 'description': 'A very small red square'},
+signed_receipt = msd.sign_and_embed(
+    {'type': 'png', 'content': receipt_png},
+    {'expense_report': 'EXP-2025-007', 'scanned_by': 'Accounting Dept'},
     my_key
 )
-print(f"Signed PNG: {len(signed_png['content'])} bytes")
 
-# Extract metadata from the signed file
-meta = msd.extract_metadata(signed_png)
-print(f"Embedded metadata: {meta}")
+meta = msd.extract_metadata(signed_receipt)
+valid = msd.verify(signed_receipt)
+clean = msd.strip_metadata_and_signature(signed_receipt)
 
-# Verify the signature
-print(f"Valid: {msd.verify(signed_png)}")
-
-# Strip the signature to recover the original
-clean = msd.strip_metadata_and_signature(signed_png)
-print(f"Stripped PNG: {len(clean['content'])} bytes")
-("Content matches original:", clean['content'] == png_bytes)
+{
+    "embedded_audit": meta,
+    "signature_valid": valid,
+    "original_recovered": clean['content'] == receipt_png,
+}
 ```
 ````Result
-('Content matches original:', True)
+{'embedded_audit': {'expense_report': 'EXP-2025-007', 'scanned_by': 'Accounting Dept'}, 'signature_valid': True, 'original_recovered': True}
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Original PNG: 69 bytes'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Signed PNG: 460 bytes'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Embedded metadata: {\'author\': \'Tutorial\', \'description\': \'A very small red square\'}'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Valid: True'
-    ),
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Stripped PNG: 69 bytes'
-    )
-]
+[]
 ````
 
 
@@ -490,7 +328,7 @@ print(f"Stripped PNG: {len(clean['content'])} bytes")
 
 | What you want to do | Function |
 |---|---|
-| Sign any data into a granule | `msd.create_granule(data, metadata, key)` |
+| Sign data into a granule | `msd.create_granule(data, metadata, key)` |
 | Sign a dict (Unicode steganography) | `msd.sign_and_embed_dict(data, metadata, key)` |
 | Sign a file (PNG, PDF, etc.) | `msd.sign_and_embed({'type': ..., 'content': ...}, metadata, key)` |
 | Verify any signed data | `msd.verify(signed_data)` |
