@@ -12,12 +12,12 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': 'Hello, Meta Structured Data!',
         'metadata': {'creator': 'Alice', 'description': 'sample data'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
-            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+            '🔏-7aa0801f3eaec65ffc4aa38c316ef3fcb56d987ff047cbbca3f80646b168ef2660b66d1373745'
+            '305d43ab004f36b33db6b9e58d6436fa242bbd7f6752109c70c'
           )
         },
         'key': {
@@ -36,12 +36,12 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': 'TAMPERED DATA',
         'metadata': {'creator': 'Alice'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
-            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+            '🔏-7aa0801f3eaec65ffc4aa38c316ef3fcb56d987ff047cbbca3f80646b168ef2660b66d1373745'
+            '305d43ab004f36b33db6b9e58d6436fa242bbd7f6752109c70c'
           )
         },
         'key': {
@@ -60,12 +60,12 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': 'Hello, Meta Structured Data!',
         'metadata': {'creator': 'Eve'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
-            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+            '🔏-7aa0801f3eaec65ffc4aa38c316ef3fcb56d987ff047cbbca3f80646b168ef2660b66d1373745'
+            '305d43ab004f36b33db6b9e58d6436fa242bbd7f6752109c70c'
           )
         },
         'key': {
@@ -84,12 +84,12 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': {'message': 'Hello', 'count': 42, 'nested': {'key': 'value'}},
         'metadata': {'creator': 'Bob', 'schema': 'v1.0'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-04ae2907139456ea20a5d0812dfb14ff90abe010113142cbdfd1b8703aea0fc5bd279124904'
-            '9789983d39f8c63851fb4175fec52993f7ea500931fd7eac32506'
+            '🔏-6bcfd1f137e103577fcdeefc35333bc15773ec080322807a7b82233eb5267d31e921949278682'
+            'bbdb3e560948e892969bde19202e9feae36ca2dc9708b120f00'
           )
         },
         'key': {
@@ -108,7 +108,7 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': 'Hello, Meta Structured Data!',
         'metadata': {'creator': 'Alice', 'description': 'sample data'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
@@ -132,12 +132,12 @@ test_cases = [
         '__type': 'ET.SignedGranule',
         'data': 'Hello, Meta Structured Data!',
         'metadata': {'creator': 'Alice', 'description': 'sample data'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775630689'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
-            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+            '🔏-7aa0801f3eaec65ffc4aa38c316ef3fcb56d987ff047cbbca3f80646b168ef2660b66d1373745'
+            '305d43ab004f36b33db6b9e58d6436fa242bbd7f6752109c70c'
           )
         },
         'key': {
@@ -160,8 +160,8 @@ test_cases = [
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619ba'
-            'e5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+            '🔏-7aa0801f3eaec65ffc4aa38c316ef3fcb56d987ff047cbbca3f80646b168ef2660b66d1373745'
+            '305d43ab004f36b33db6b9e58d6436fa242bbd7f6752109c70c'
           )
         },
         'key': {
