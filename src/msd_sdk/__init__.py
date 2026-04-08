@@ -53,11 +53,11 @@ def _verify_zef_installation():
             "This is currently not publicly available yet. Coming soon."
         )
     
-    # Check for blake3_hash which is only available in rust-based zef
-    if not hasattr(zef, 'blake3_hash'):
+    # Check for msd_hash which is only available in rust-based zef
+    if not hasattr(zef, 'msd_hash'):
         raise ImportError(
-            "msd-sdk requires the rust-based zef package (zef-core), "
-            "but a different 'zef' package is installed. "
+            "msd-sdk requires the rust-based zef package (zef-core) with msd_hash support, "
+            "but the installed 'zef' package does not provide it. "
             "The required Zef package is not publicly available yet. Coming soon."
         )
     
