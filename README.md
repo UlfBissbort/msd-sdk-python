@@ -92,238 +92,156 @@ my_key = msd.key_from_env("MSD_PRIVATE_KEY")
 }
 ```
 
-### 2. Create a Signed Granule
+### 2. Sign Data
 
-**Important:**
-- `data` can be **any plain data type**: string, dict, list, number, boolean, etc.
+`sign()` creates a signed data envelope — data + metadata + timestamp + Ed25519 signature.
+
+- `data` can be **any plain data type**: string, dict, list, number, boolean, or a typed file dict
 - `metadata` must always be a **dictionary**
 
-#### Example 1: String data
-
 ```python
-data = "Hello, Meta Structured Data!"
-metadata = {
-    'creator': 'Alice',
-    'description': 'sample data',
-}
-
-my_granule = msd.create_granule(data, metadata, my_key)
+signed = msd.sign(
+    data="Hello, Meta Structured Data!",
+    metadata={'creator': 'Alice', 'description': 'sample data'},
+    key=my_key
+)
 ```
 
-**Granule structure returned:**
+**Signed data structure returned:**
 ```python
 {
-  '__type': 'ET.SignedGranule',
+  '__type': 'ET.SignedData',
   'data': 'Hello, Meta Structured Data!',
   'metadata': {'creator': 'Alice', 'description': 'sample data'},
-  'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
+  'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
   'signature': {
     '__type': 'ET.Ed25519Signature',
-    'signature': '🔏-9f3a8c29e9784fe63ccc7ebc3e1f394e9dcdf9a7d51bc6fa314dac8a902e9aff6a4e64619bae5a4f674980fcba77877d8a0131e8dfa7976cc23cf1d526ab0c07'
+    'signature': '🔏-ab36b3ddecac1278...'
   },
   'key': {
     '__type': 'ET.Ed25519KeyPair',
-    '__uid': '🍃-8d1dc8766070c87a4bb1',
-    'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
+    '__uid': '🍃-ab3a364813a652eb45f9',
+    'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
   }
 }
 ```
 
-#### Example 2: Dict data (nested structures supported)
+Dict data works the same way:
 
 ```python
-data = {"message": "Hello", "count": 42, "nested": {"key": "value"}}
-metadata = {'creator': 'Bob', 'schema': 'v1.0'}
-
-my_granule = msd.create_granule(data, metadata, my_key)
+signed = msd.sign(
+    data={"message": "Hello", "count": 42, "nested": {"key": "value"}},
+    metadata={'creator': 'Bob', 'schema': 'v1.0'},
+    key=my_key
+)
 ```
 
-**Granule structure returned:**
-```python
-{
-  '__type': 'ET.SignedGranule',
-  'data': {'message': 'Hello', 'count': 42, 'nested': {'key': 'value'}},
-  'metadata': {'creator': 'Bob', 'schema': 'v1.0'},
-  'signature_time': {'__type': 'Time', 'zef_unix_time': '1769253762'},
-  'signature': {
-    '__type': 'ET.Ed25519Signature',
-    'signature': '🔏-04ae2907139456ea20a5d0812dfb14ff90abe010113142cbdfd1b8703aea0fc5bd2791249049789983d39f8c63851fb4175fec52993f7ea500931fd7eac32506'
-  },
-  'key': {
-    '__type': 'ET.Ed25519KeyPair',
-    '__uid': '🍃-8d1dc8766070c87a4bb1',
-    'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
-  }
-}
-```
+### 3. Embed Signatures
 
-### 3. Verify a Signature
+`embed()` takes signed data and embeds the signature into the data itself — either via Unicode steganography (dicts) or binary embedding (files).
 
-`verify()` checks whether a signature is valid — i.e., whether the data has been tampered with since signing. It works on all three signed data types:
+#### Embedding in Dicts
 
-#### Verifying a Granule
+The signature is hidden in an `__msd` key using **Unicode steganography** — invisible variation selectors carry the full cryptographic payload inside a single `🔏` emoji. The dict stays clean and human-readable.
 
 ```python
-granule = msd.create_granule(data, metadata, my_key)
-
-is_valid = msd.verify(granule)  # returns True or False
-```
-
-#### Verifying a Signed Dict
-
-```python
-signed_dict = msd.sign_and_embed_dict(
+signed = msd.sign(
     {"message": "Hello", "count": 42},
-    {"creator": "Alice"},
+    {"creator": "Alice", "version": "1.0"},
     my_key
 )
-
-is_valid = msd.verify(signed_dict)  # True
-
-# Tamper with the data — verification fails
-signed_dict["count"] = 99
-is_valid = msd.verify(signed_dict)  # False
+embedded = msd.embed(signed)
+# => {"message": "Hello", "count": 42, "__msd": "🔏..."}
 ```
 
-#### Verifying a Signed File
+The embedded dict survives JSON round-trips and can be stored in databases or transmitted over APIs.
+
+#### Embedding in Files
+
+For typed file data (images, PDFs, etc.), `embed()` embeds the signature directly into the file's binary format:
 
 ```python
 import base64
 
-signed_png = msd.sign_and_embed(
+signed = msd.sign(
     {'__type': 'PngImage', 'data': base64.b64encode(png_bytes).decode()},
-    {'author': 'Alice'},
+    {'author': 'Alice', 'description': 'sample image'},
     my_key
 )
-
-is_valid = msd.verify(signed_png)  # True
+embedded = msd.embed(signed)
+# => {'__type': 'PngImage', 'data': '<base64 with embedded signature>'}
 ```
 
-This works for all supported file types: PngImage, JpgImage, WebpImage, SvgImage, PDF, WordDocument, ExcelDocument, PowerpointDocument.
+Supported `__type` values: `PngImage`, `JpgImage`, `WebpImage`, `SvgImage`, `PDF`, `WordDocument`, `ExcelDocument`, `PowerpointDocument`.
 
-#### Behavior
+See the **[Typed Data Guide](docs/typed-data.md)** for details.
 
-- Returns `True` if the signature is valid for the data
-- Returns `False` if the data has been modified since signing
+### 4. Verify a Signature
+
+`verify()` checks whether a signature is valid. It returns a **rich result dict** with detailed information:
+
+```python
+result = msd.verify(signed)
+result['signature_is_valid']  # True or False
+```
+
+**Result dict structure:**
+```python
+{
+  'signature_is_valid': True,       # core validity check
+  'signature_is_trusted': False,    # trust chain (not yet implemented)
+  'data_hash': {...},               # BLAKE3 hash of the data
+  'metadata_hash': {...},           # BLAKE3 hash of the metadata
+  'signature_timestamp': {...},     # when the signature was created
+  'signing_key': {...},             # public key used for signing
+  'signing_key_trust_chain': [],    # trust chain (not yet implemented)
+  'trust_chain_breaches': [],       # trust chain (not yet implemented)
+}
+```
+
+`verify()` works on all signed data types: `ET.SignedData`, dicts with `__msd` key, and typed file dicts with embedded signatures.
+
+```python
+# Verify signed data directly
+result = msd.verify(signed)
+
+# Verify embedded dict
+result = msd.verify(embedded_dict)
+
+# Verify signed file
+result = msd.verify(signed_png)
+
+# Tamper detection
+embedded_dict["count"] = 999
+result = msd.verify(embedded_dict)
+result['signature_is_valid']  # False
+```
+
 - Raises `ValueError` if the input format is not recognized or has no embedded signature
 
-### 4. Content Hash (without signature)
+#### Extracting Metadata and Signature
+
+```python
+metadata = msd.extract_metadata(signed_data)
+sig_info = msd.extract_signature(signed_data)
+```
+
+Both work on dicts with `__msd` and typed file dicts with embedded signatures.
+
+#### Removing Embedded Signatures
+
+```python
+clean_image = msd.strip_metadata_and_signature(signed_png)
+```
+
+### 5. Content Hash (without signature)
 
 ```python
 my_content_hash = msd.content_hash(data)
 # Returns: {'__type': 'MsdHash', 'hash': '523d1d9f304a40f30aa741cbdd66cad80f65b9db6c6cba66f2e149e0c2907f29'}
 ```
 
-**About Merkle Hashing**
-
-`content_hash` uses BLAKE3 Merkle hashing for aggregate data types (Dict, Array/List, Set) and Entity types. This enables:
-
-- **Structural sharing**: Reused sub-structures have the same hash
-- **Interoperability with signatures**: Shared data can be verified independently  
-- **Specifying aggregates by hashes**: A dict's hash depends on the hashes of its keys and values
-
-The mapping from hash → full value can be maintained via hash stores (dicts/maps), enabling content-addressed storage and deduplication.
-
-### Signing and Embedding in Dicts
-
-You can sign a plain Python dictionary and embed the metadata + signature directly in an `__msd` key using **Unicode steganography** — the signature data is hidden inside invisible Unicode variation selectors attached to a single emoji character. To the naked eye, `__msd` looks like `🔏`, but it carries the full cryptographic payload. This keeps the dict clean and human-readable: the metadata and signature are often much larger than the data itself, and steganography ensures they never clutter the output.
-
-```python
-data = {"message": "Hello", "count": 42}
-metadata = {"creator": "Alice", "version": "1.0"}
-
-signed_dict = msd.sign_and_embed_dict(data, metadata, my_key)
-# => {"message": "Hello", "count": 42, "__msd": "🔏..."}
-```
-
-The signed dict can be serialized to JSON, stored in databases, or transmitted over APIs — the steganographic `__msd` value survives JSON round-trips.
-
-#### Extracting Metadata and Signature from Dicts
-
-```python
-# Extract just the metadata
-metadata = msd.extract_metadata(signed_dict)
-# => {"creator": "Alice", "version": "1.0"}
-
-# Extract the full signature information
-sig_info = msd.extract_signature(signed_dict)
-# => {"signature": {...}, "signature_time": {...}, "key": {...}}
-```
-
-Both `extract_metadata` and `extract_signature` automatically detect whether the input is a signed dict (has `__msd` key) or a signed file (has `__type` matching a supported file type) and handle both cases.
-
-#### Verifying a Signed Dict
-
-```python
-is_valid = msd.verify(signed_dict)  # True — signature matches data
-
-# If someone tampers with the data, verification fails:
-signed_dict["count"] = 999
-is_valid = msd.verify(signed_dict)  # False
-```
-
-### Embedding Signatures in Images, PDFs and other Documents
-- Granules are container data structures which contain data, metadata, and signature alongside each other
-- Granules can be saved in `.msd` files and provide an efficient binary format for storage and transmission. But your system and existing programs do not know how to interpret them.
-- Sometimes you want to attach metadata and signatures to existing file formats like images (PNG, JPEG), PDFs, audio files, video files and send them to other people or systems.
-- For these cases, MSD also provides tools to embed metadata and signatures **into** certain file formats, while keeping the original file content intact and viewable by standard programs.
-- Supported formats: 
-  - PNG images
-  - JPG images
-  - PDF documents
-  - Word documents (DOCX)
-  - Excel spreadsheets (XLSX)
-  - PowerPoint presentations (PPTX)
-
-#### ⚠️ Warning ⚠️
-- Some programs or platforms may strip out the attached metadata when re-saving or re-exporting the files.
-- A MSD signature applies to exactly one fixed content version of a document. Editing the content in the slightest way invalidates the signature
-
-```python
-import base64
-
-signed_png_image = msd.sign_and_embed(
-  data={'__type': 'PngImage', 'data': base64.b64encode(png_binary_data).decode()},
-  metadata={'creator': 'Alice', 'description': 'sample image'},
-  key=my_msd_key
-)
-```
-
-The returned image with the embedded signature is also of the form
-```python
-{'__type': 'PngImage', 'data': '<base64-encoded signed bytes>'}
-```
-
-Supported `__type` values:
-- `PngImage`
-- `JpgImage`
-- `WebpImage`
-- `SvgImage`
-- `PDF`
-- `WordDocument`
-- `ExcelDocument`
-- `PowerpointDocument`
-
-See the **[Typed Data Guide](docs/typed-data.md)** for details and examples.
-
-#### Extracting and Verifying Embedded Signatures
-
-```python
-extracted_metadata = msd.extract_metadata(signed_png_image)
-extracted_signature = msd.extract_signature(signed_png_image)
-```
-
-```python
-# Verify signature
-is_valid = msd.verify(signed_png_image)
-```
-
-
-#### Removing Embedded Signatures and Metadata
-
-```python
-clean_image = msd.strip_metadata_and_signature(signed_png_image)
-```
+`content_hash` uses BLAKE3 Merkle hashing for aggregate data types. This enables structural sharing, content-addressed storage, and deduplication.
 
 
 

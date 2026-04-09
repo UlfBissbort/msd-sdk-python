@@ -150,7 +150,7 @@ ci_key = msd.generate_key_pair(
 
 ```python
 # Works with either key type
-granule = msd.create_granule(
+signed = msd.sign(
     data={"report": "Q4 Results"},
     metadata={"author": "finance@company.com"},
     key=ci_key  # or identity_key
@@ -405,8 +405,8 @@ pipeline_key = msd.key_from_env("MSD_CI_SIGNING_KEY")
 
 # Sign build artifacts
 for artifact in build_artifacts:
-    signed = msd.create_granule(
-        data={'type': artifact.type, 'content': artifact.content},
+    signed = msd.sign(
+        data={'__type': artifact.type, 'data': artifact.content},
         metadata={'build_id': os.environ['BUILD_ID'], 'commit': os.environ['GIT_SHA']},
         key=pipeline_key
     )

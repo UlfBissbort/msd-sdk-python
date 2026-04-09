@@ -7,6 +7,52 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.2.0] — Sign. Embed. Verify.
+
+### Breaking Changes
+
+- **Removed `create_granule()`** — use `sign(data, metadata, key)` instead. Returns `ET.SignedData` (not `ET.SignedGranule`).
+
+- **Removed `sign_and_embed()`** and **`sign_and_embed_dict()`** — use `sign()` then `embed()` as two separate steps.
+
+  Before:
+  ```python
+  signed_dict = msd.sign_and_embed_dict(data, metadata, key)
+  signed_file = msd.sign_and_embed(typed_data, metadata, key)
+  ```
+
+  After:
+  ```python
+  signed = msd.sign(data, metadata, key)
+  embedded_dict = msd.embed(signed)          # for dicts
+  embedded_file = msd.embed(signed)          # for typed file data
+  ```
+
+- **`verify()` now returns a rich dict instead of a boolean.**
+
+  Before:
+  ```python
+  is_valid = msd.verify(signed_data)  # True/False
+  ```
+
+  After:
+  ```python
+  result = msd.verify(signed_data)
+  result['signature_is_valid']  # True/False
+  # Also: data_hash, metadata_hash, signature_timestamp, signing_key, etc.
+  ```
+
+- **`verify()` rejects `ET.SignedGranule`** — only accepts `ET.SignedData`. Raises `ValueError` with migration guidance.
+
+- **`sign()` strips embedded data from typed files before signing** — re-signing an already-embedded file produces a clean signature over the original content.
+
+### Added
+
+- `sign(data, metadata, key)` — create a signed data envelope
+- `embed(signed_data)` — embed signature into data (dict steganography or file binary embedding)
+
+---
+
 ## [Unreleased]
 
 ### Breaking Changes

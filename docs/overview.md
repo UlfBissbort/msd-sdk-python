@@ -65,14 +65,12 @@ msd-sdk-python/
 
 ### Current State
 
-The SDK is in early alpha (v0.1.1). The current implementation in [src/msd_sdk/__init__.py](../src/msd_sdk/__init__.py) provides:
+The SDK is at v0.2.0. The current implementation provides:
 
-- Version declaration (`__version__ = "0.1.1"`)
+- Version declaration (`__version__ = "0.2.0"`)
 - Zef package verification (checks for the rust-based `zef-core` dependency)
 
-### Planned API
-
-Based on the design documents, the target API is:
+### API
 
 ```python
 import msd_sdk as msd
@@ -80,14 +78,18 @@ import msd_sdk as msd
 # Key management
 my_key = msd.key_from_env("MSD_PRIVATE_KEY")
 
-# Create a signed granule
-my_granule = msd.create_granule(data, metadata, my_key)
+# Sign data
+signed = msd.sign(data, metadata, my_key)
+
+# Embed signature into data
+embedded = msd.embed(signed)
 
 # Content hashing (without signature)
 my_content_hash = msd.content_hash(data)
 
 # Verify signatures
-is_valid = msd.verify(signed_granule)
+result = msd.verify(signed_data)
+result['signature_is_valid']  # True/False
 ```
 
 *For API naming exploration, see [_api_naming_alternatives.md](../notes/_api_naming_alternatives.md).*
@@ -163,7 +165,7 @@ The signature is computed over three concatenated components:
 
 The SDK depends on **zef-core**, a Rust-based library providing:
 
-- `merkle_hash` – Content hashing
+- `merkle_hash` / `msd_hash` – Content hashing
 - `blake3_hash_content` – BLAKE3 hashing
 - `sign_with` / `verify_signature` – Ed25519 operations
 - `to_json_like` / `from_json_like` – Type serialization

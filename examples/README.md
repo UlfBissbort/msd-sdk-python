@@ -4,14 +4,14 @@ This folder contains examples demonstrating how to use the MSD-SDK for signing a
 
 ## Supported File Formats
 
-| Format | Type Key | Description |
+| Format | `__type` | Description |
 |--------|----------|-------------|
-| PNG | `png` | PNG images |
-| JPG | `jpg` | JPEG images |
-| PDF | `pdf` | PDF documents |
-| DOCX | `word_document` | Microsoft Word documents |
-| XLSX | `excel_document` | Microsoft Excel spreadsheets |
-| PPTX | `powerpoint_document` | Microsoft PowerPoint presentations |
+| PNG | `PngImage` | PNG images |
+| JPG | `JpgImage` | JPEG images |
+| PDF | `PDF` | PDF documents |
+| DOCX | `WordDocument` | Microsoft Word documents |
+| XLSX | `ExcelDocument` | Microsoft Excel spreadsheets |
+| PPTX | `PowerpointDocument` | Microsoft PowerPoint presentations |
 
 ## Running the Example
 
