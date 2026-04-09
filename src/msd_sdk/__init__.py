@@ -5,10 +5,18 @@ Quick Start
 -----------
     import msd_sdk as msd
     
-    key = msd.generate_key_pair()
+    key = msd.key_from_env("MSD_PRIVATE_KEY")  # or generate in MSD Explorer
     signed = msd.sign({"msg": "hello"}, {"author": "alice"}, key)
     result = msd.verify(signed)
-    assert result['signature_is_valid']
+    result['signature_is_valid']   # cryptographic validity
+    result['signature_is_trusted'] # identity trust (requires endorsed key)
+
+Keys & Trust
+------------
+    A valid signature from an unknown key tells verifiers nothing about who
+    signed the data. For trusted signatures, generate keys in MSD Explorer
+    (https://network.msd-protocol.org/dashboard) — they're endorsed and linked to
+    your identity. generate_key_pair(unendorsed=True) is for testing only.
 
 Core Functions
 --------------

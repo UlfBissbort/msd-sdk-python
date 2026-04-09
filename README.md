@@ -72,9 +72,21 @@ See [examples/README.md](examples/README.md) for more details.
 
 ## Usage
 
-### 1. Load Key from Environment
+### 1. Keys — Valid vs. Trusted
 
-The key must be stored as a JSON string in an environment variable:
+A signature is only as trustworthy as the key behind it. Anyone can generate a key pair locally — and the SDK will happily sign with it. But a valid signature from an unknown key tells a verifier nothing about *who* signed the data.
+
+For production use, **generate your keys in [MSD Explorer](https://network.msd-protocol.org/dashboard)**. Keys generated there are:
+
+- **Linked to your identity** — verifiers can see who signed the data
+- **Endorsed by the platform** — a trust chain from the MSD root to your key
+- **Discoverable** — others can find your public key and add you to their trust network
+
+This is the difference between `signature_is_valid` and `signature_is_trusted` in the verify result. Cryptographic validity is table stakes. Trust requires identity.
+
+> For testing and development, `msd.generate_key_pair(unendorsed=True)` creates a local key that works for signing but can't be trusted by anyone outside your machine.
+
+#### Loading a Key from Environment
 
 ```python
 import msd_sdk as msd
@@ -82,15 +94,7 @@ import msd_sdk as msd
 my_key = msd.key_from_env("MSD_PRIVATE_KEY")
 ```
 
-**Key structure returned:**
-```python
-{
-  '__type': 'ET.Ed25519KeyPair',
-  '__uid': '🍃-8d1dc8766070c87a4bb1',
-  'private_key': '🗝️-61250af6bf8b9332be5c2b8a4877c56189867c8840cce541ab7fbe9270bb9b6c',
-  'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
-}
-```
+See the [Key Management Guide](docs/key-management.md) for storage best practices and the two-tier key model.
 
 ### 2. Sign Data
 

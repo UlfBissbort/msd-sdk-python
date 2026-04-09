@@ -18,7 +18,9 @@ import base64
 import hashlib
 import msd_sdk as msd
 
-# Example key - in production, use msd.key_from_env() or generate securely
+# Example key — for testing only.
+# For production, generate keys in MSD Explorer (https://network.msd-protocol.org/dashboard)
+# so verifiers can trace signatures back to your identity.
 EXAMPLE_KEY = {
     '__type': 'ET.Ed25519KeyPair',
     '__uid': '🍃-8d1dc8766070c87a4bb1',

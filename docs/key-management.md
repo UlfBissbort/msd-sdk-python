@@ -4,6 +4,25 @@ A practical guide to generating, managing, and using cryptographic keys in the M
 
 ---
 
+## Valid vs. Trusted — Why Key Generation Matters
+
+A signature proves the data hasn't been tampered with. But it doesn't tell you *who signed it*. A valid signature from an unknown key is like a handwritten signature from a stranger — mathematically correct, but not meaningful.
+
+This is the distinction between `signature_is_valid` and `signature_is_trusted` in the verify result:
+
+| | `signature_is_valid` | `signature_is_trusted` |
+|---|---|---|
+| **What it checks** | Ed25519 math + BLAKE3 hashes | Identity behind the key |
+| **Requires network** | No | Depends on trust config |
+| **Local key** | ✓ | ✗ (key is unknown to others) |
+| **Platform key** | ✓ | ✓ (key is endorsed and discoverable) |
+
+**For anything others will verify, generate your keys in [MSD Explorer](https://network.msd-protocol.org/dashboard).** Keys generated there are endorsed by the platform and linked to your identity — so verifiers can see who signed the data and decide whether to trust it.
+
+`generate_key_pair(unendorsed=True)` is for testing and local development only.
+
+---
+
 ## Key Types: Two-Tier Model
 
 MSD uses a **two-tier key model** that mirrors real-world trust relationships:
@@ -107,12 +126,24 @@ Working keys are endorsed by an identity key and include expiry:
 
 ## Quick Start
 
-### Generate an Identity Key
+### Recommended: Generate Keys in MSD Explorer
+
+The easiest way to create a properly endorsed key is through [MSD Explorer](https://network.msd-protocol.org/dashboard):
+
+1. Create an account (links your identity to your keys)
+2. Generate a key pair (endorsed by the platform automatically)
+3. Export the private key and store it securely
+
+The key you get is already part of the trust network — anyone who verifies data signed with it can trace the key back to your identity.
+
+### Programmatic Key Generation
+
+For CI/CD pipelines and automation, you can generate keys in code:
 
 ```python
 import msd_sdk as msd
 
-# Generate and register with MSD platform
+# Generate and register with MSD platform (recommended)
 identity_key = msd.generate_key_pair()
 
 # The key is a plain dict - you manage naming externally

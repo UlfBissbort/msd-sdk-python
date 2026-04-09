@@ -6,6 +6,8 @@ A hands-on walkthrough of the MSD SDK — using an **accounting audit trail** as
 
 > **Prerequisites:** `msd-sdk` and `zef` installed in the same virtual environment.
 
+> **About keys in this tutorial:** Every example uses an inline test key. This is fine for learning. For real use, generate your keys in [MSD Explorer](https://network.msd-protocol.org/dashboard) — so verifiers can trace signatures back to your identity. An unendorsed key produces valid signatures, but not *trusted* ones.
+
 
 ---
 
