@@ -28,8 +28,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/UlfBissbort/msd-sdk-python"
-Repository = "https://github.com/UlfBissbort/msd-sdk-python"
+Homepage = "https://msd-protocol.org"
+Repository = "https://github.com/msd-protocol/msd-sdk-python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/msd_sdk"]
