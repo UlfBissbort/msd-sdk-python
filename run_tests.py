@@ -11,6 +11,8 @@ test_files = [
     'test_verify.py',
     'test_sign_and_embed_dict.py',
     'test_sign_and_embed_files.py',
+    'test_sign.py',
+    'test_embed.py',
 ]
 
 total_failures = 0

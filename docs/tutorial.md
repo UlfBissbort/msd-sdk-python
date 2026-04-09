@@ -1,6 +1,6 @@
 # MSD SDK Tutorial — Hands On
 
-*Sign it. Verify it. Trust it.*
+*Sign it. Embed it. Verify it.*
 
 A hands-on walkthrough of the MSD SDK — using an **accounting audit trail** as the running example. Every code block is **self-contained**: run any block on its own.
 
@@ -11,7 +11,7 @@ A hands-on walkthrough of the MSD SDK — using an **accounting audit trail** as
 
 ## 1. Your First Signed Invoice
 
-A **Granule** is the fundamental unit of MSD: data + metadata + timestamp + cryptographic signature, bundled into a tamper-proof envelope.
+**Signed Data** is the fundamental unit of MSD: data + metadata + timestamp + cryptographic signature, bundled into a tamper-proof envelope.
 
 ```python
 import msd_sdk as msd
@@ -41,47 +41,11 @@ audit = {
     "approval_date": "2025-01-15",
 }
 
-granule = msd.create_granule(invoice, audit, my_key)
-granule
+signed = msd.sign(invoice, audit, my_key)
+signed
 ```
-````Result
-{
-  '__type': 'ET.SignedGranule',
-  'data': {
-    'invoice_id': 'INV-2025-0042',
-    'vendor': 'Acme Supplies',
-    'amount': 1250.0,
-    'currency': 'EUR',
-    'line_items': [
-      {'description': 'Office chairs (x5)', 'amount': 750.0},
-      {'description': 'Standing desks (x2)', 'amount': 500.0}
-    ]
-  },
-  'metadata': {
-    'approved_by': 'CFO Jane Chen',
-    'department': 'Operations',
-    'approval_date': '2025-01-15'
-  },
-  'signature_time': {'__type': 'Time', 'zef_unix_time': '1771462767'},
-  'signature': {
-    '__type': 'ET.Ed25519Signature',
-    'signature': (
-      '🔏-51d6a835632b70579145a9fee2fe3c190ccc11daef3c27ffbb9cec1a24364e64309ae2936a4'
-      'ec10b093cbb1d7cca0c674ff8fa18b75d031dd256d771d8352208'
-    )
-  },
-  'key': {
-    '__type': 'ET.Ed25519KeyPair',
-    '__uid': '🍃-8d1dc8766070c87a4bb1',
-    'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
-  }
-}
-````
-````Side Effects
-[]
-````
 
-The granule contains `data` (the invoice), `metadata` (the audit trail), `signature_time`, `signature`, and `key` (public only — your private key never leaks).
+The signed data contains `data` (the invoice), `metadata` (the audit trail), `signature_time`, `signature`, and `key` (public only — your private key never leaks).
 
 
 ---
@@ -100,20 +64,20 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-granule = msd.create_granule(
+signed = msd.sign(
     {"invoice_id": "INV-2025-0042", "amount": 1250.00, "vendor": "Acme Supplies"},
     {"approved_by": "CFO Jane Chen", "department": "Operations"},
     my_key
 )
 
-msd.verify(granule)
+result = msd.verify(signed)
+result['signature_is_valid']
 ```
 ````Result
 True
 ````
-````Side Effects
-[]
-````
+
+`verify()` returns a rich dict with `signature_is_valid`, `data_hash`, `metadata_hash`, `signature_timestamp`, and more.
 
 
 ---
@@ -134,18 +98,15 @@ inv_c = msd.content_hash({"invoice_id": "INV-2025-0043", "amount": 89.99})
 ````Result
 ('same invoice, same hash:', True, 'different invoice, different hash:', True)
 ````
-````Side Effects
-[]
-````
 
 
 ---
 
 ## 4. The Invisible Audit Trail — Unicode Steganography 🔏
 
-Granules wrap your data in a new structure. But what if you want to keep the original dict shape — say, for an API response or a JSON export — while still carrying a cryptographic audit trail?
+Signed data wraps your data in a new structure. But what if you want to keep the original dict shape — say, for an API response or a JSON export — while still carrying a cryptographic audit trail?
 
-`sign_and_embed_dict` hides the full signature inside a single `🔏` emoji using **Unicode steganography**. Invisible variation selectors carry the complete metadata, timestamp, and Ed25519 signature. The dict stays clean and uncluttered.
+`sign()` + `embed()` hides the full signature inside a single `🔏` emoji using **Unicode steganography**. Invisible variation selectors carry the complete metadata, timestamp, and Ed25519 signature. The dict stays clean and uncluttered.
 
 ```python
 import msd_sdk as msd
@@ -172,17 +133,15 @@ audit_trail = {
     "compliance_check": "passed",
 }
 
-signed = msd.sign_and_embed_dict(payment, audit_trail, my_key)
+signed = msd.sign(payment, audit_trail, my_key)
+embedded = msd.embed(signed)
 
 # The original data is untouched — plus a steganographic __msd key
 # Survives JSON round-trips
-json.loads(json.dumps(signed)) == signed
+json.loads(json.dumps(embedded)) == embedded
 ```
 ````Result
 True
-````
-````Side Effects
-[]
 ````
 
 
@@ -190,7 +149,7 @@ True
 
 ## 5. Reading the Audit Trail
 
-Extract the metadata and signature hidden inside a signed dict:
+Extract the metadata and signature hidden inside an embedded dict:
 
 ```python
 import msd_sdk as msd
@@ -202,14 +161,15 @@ my_key = {
     'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-signed = msd.sign_and_embed_dict(
+signed = msd.sign(
     {"invoice_id": "INV-2025-0042", "amount": 1250.00},
     {"approved_by": "CFO Jane Chen", "compliance_check": "passed"},
     my_key
 )
+embedded = msd.embed(signed)
 
-meta = msd.extract_metadata(signed)
-sig = msd.extract_signature(signed)
+meta = msd.extract_metadata(embedded)
+sig = msd.extract_signature(embedded)
 
 {
     "audit_trail": meta,
@@ -217,19 +177,13 @@ sig = msd.extract_signature(signed)
     "signing_key": sig["key"]["__uid"],
 }
 ```
-````Result
-{'audit_trail': {'approved_by': 'CFO Jane Chen', 'compliance_check': 'passed'}, 'signed_at': {'__type': 'Time', 'zef_unix_time': '1771462875'}, 'signing_key': '🍃-8d1dc8766070c87a4bb1'}
-````
-````Side Effects
-[]
-````
 
 
 ---
 
 ## 6. Catching Fraud
 
-Change anything in a signed dict — a value, add a key, remove a key — and `verify()` catches it.
+Change anything in an embedded dict — a value, add a key, remove a key — and `verify()` catches it.
 
 ```python
 import msd_sdk as msd
@@ -242,30 +196,28 @@ my_key = {
 }
 
 expense = {"vendor": "Acme Supplies", "amount": 1250.00, "category": "office"}
-signed = msd.sign_and_embed_dict(expense, {"approved_by": "CFO Jane Chen"}, my_key)
+signed = msd.sign(expense, {"approved_by": "CFO Jane Chen"}, my_key)
+embedded = msd.embed(signed)
 
 # Untouched: valid
-original_ok = msd.verify(signed)
+original = msd.verify(embedded)['signature_is_valid']
 
 # Inflated amount
-t1 = dict(signed); t1["amount"] = 9999.00
-inflated_ok = msd.verify(t1)
+t1 = dict(embedded); t1["amount"] = 9999.00
+inflated = msd.verify(t1)['signature_is_valid']
 
 # Snuck in a bonus line
-t2 = dict(signed); t2["bonus"] = 500.00
-added_ok = msd.verify(t2)
+t2 = dict(embedded); t2["bonus"] = 500.00
+added = msd.verify(t2)['signature_is_valid']
 
 # Removed the category to hide it
-t3 = {k: v for k, v in signed.items() if k != "category"}
-removed_ok = msd.verify(t3)
+t3 = {k: v for k, v in embedded.items() if k != "category"}
+removed = msd.verify(t3)['signature_is_valid']
 
-{"original": original_ok, "inflated_amount": inflated_ok, "added_key": added_ok, "removed_key": removed_ok}
+{"original": original, "inflated_amount": inflated, "added_key": added, "removed_key": removed}
 ```
 ````Result
 {'original': True, 'inflated_amount': False, 'added_key': False, 'removed_key': False}
-````
-````Side Effects
-[]
 ````
 
 
@@ -279,7 +231,7 @@ Supported formats: **PNG, JPG, PDF, DOCX, XLSX, PPTX**.
 
 ```python
 import msd_sdk as msd
-import struct, zlib
+import base64, struct, zlib
 
 my_key = {
     '__type': 'ET.Ed25519KeyPair',
@@ -297,28 +249,27 @@ def make_tiny_png():
     return sig + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b'')
 
 receipt_png = make_tiny_png()
+png_data = {'__type': 'PngImage', 'data': base64.b64encode(receipt_png).decode()}
 
-signed_receipt = msd.sign_and_embed(
-    {'type': 'png', 'content': receipt_png},
+signed = msd.sign(
+    png_data,
     {'expense_report': 'EXP-2025-007', 'scanned_by': 'Accounting Dept'},
     my_key
 )
+embedded = msd.embed(signed)
 
-meta = msd.extract_metadata(signed_receipt)
-valid = msd.verify(signed_receipt)
-clean = msd.strip_metadata_and_signature(signed_receipt)
+meta = msd.extract_metadata(embedded)
+result = msd.verify(embedded)
+clean = msd.strip_metadata_and_signature(embedded)
 
 {
     "embedded_audit": meta,
-    "signature_valid": valid,
-    "original_recovered": clean['content'] == receipt_png,
+    "signature_valid": result['signature_is_valid'],
+    "original_recovered": base64.b64decode(clean['data']) == receipt_png,
 }
 ```
 ````Result
 {'embedded_audit': {'expense_report': 'EXP-2025-007', 'scanned_by': 'Accounting Dept'}, 'signature_valid': True, 'original_recovered': True}
-````
-````Side Effects
-[]
 ````
 
 
@@ -328,10 +279,9 @@ clean = msd.strip_metadata_and_signature(signed_receipt)
 
 | What you want to do | Function |
 |---|---|
-| Sign data into a granule | `msd.create_granule(data, metadata, key)` |
-| Sign a dict (Unicode steganography) | `msd.sign_and_embed_dict(data, metadata, key)` |
-| Sign a file (PNG, PDF, etc.) | `msd.sign_and_embed({'type': ..., 'content': ...}, metadata, key)` |
-| Verify any signed data | `msd.verify(signed_data)` |
+| Sign data | `msd.sign(data, metadata, key)` |
+| Embed signature (dict steganography or file binary) | `msd.embed(signed_data)` |
+| Verify any signed data | `result = msd.verify(x); result['signature_is_valid']` |
 | Extract metadata | `msd.extract_metadata(signed_data)` |
 | Extract signature info | `msd.extract_signature(signed_data)` |
 | Content hash (no signing) | `msd.content_hash(data)` |

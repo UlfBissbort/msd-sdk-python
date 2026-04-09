@@ -61,7 +61,7 @@ TYPED_DATA_TYPES = frozenset({
 # Pattern for valid entity type names: ET.<valid_python_identifier>
 _ENTITY_TYPE_RE = re.compile(r'^ET\.[A-Za-z_][A-Za-z0-9_]*$')
 
-# Types that support file embedding (sign_and_embed)
+# Types that support file embedding (embed)
 _FILE_EMBEDDABLE_TYPES = frozenset({
     'PngImage', 'JpgImage', 'WebpImage', 'SvgImage',
     'PDF', 'WordDocument', 'ExcelDocument', 'PowerpointDocument',
@@ -197,31 +197,37 @@ def key_from_env(env_var_name: str = "MSD_PRIVATE_KEY") -> dict:
     return json.loads(key_json)
 
 
-def create_granule(data, metadata: dict, key: dict) -> dict:
+def sign(data, metadata: dict, key: dict) -> dict:
     """
-    Create a signed MSD Granule.
+    Sign data with metadata. Returns an ET.SignedData dict.
     
-    A Granule is the fundamental unit in MSD: a piece of data combined with
-    its metadata, timestamp, and cryptographic signature.
+    This is the primary signing function. It produces a signed data structure
+    that can be:
+    - Verified directly with verify()
+    - Embedded into a file or dict with embed()
+    
+    For typed file dicts (PngImage, PDF, etc.), any existing embedded data
+    is stripped before signing to ensure correct hash computation.
     
     Args:
-        data: The data to sign (can be any JSON-serializable value).
+        data: The data to sign (any JSON-serializable value, or a typed file dict).
         metadata: A dictionary of metadata about the data.
-        key: The Ed25519 key pair to sign with (from key_from_env or similar).
-             Must be a dict with '__type': 'ET.Ed25519KeyPair' and 'private_key'.
+        key: The Ed25519 key pair to sign with.
     
     Returns:
-        A dictionary representing the signed granule with structure:
-        {
-          '__type': 'ET.SignedGranule',
-          'data': ...,
-          'metadata': {...},
-          'signature_time': {...},
-          'signature': {...},
-          'key': {...}
-        }
+        A dictionary with __type='ET.SignedData' containing the signed data,
+        metadata, timestamp, signature, and public key.
     """
     import zef
+    
+    # Strip existing embedded data from typed file dicts before signing.
+    # Without this, re-signing an already-signed file would hash the 
+    # content+old-signature, making verify fail after embed().
+    if _is_typed_data(data):
+        data_zef = _typed_dict_to_zef(data)
+        data_zef = zef.strip_embedded_data(data_zef)
+        data = _zef_to_typed_dict(data_zef)
+    
     _validate_typed_values(data)
     _validate_typed_values(metadata)
     # If typed data, convert to Zef type first
@@ -231,7 +237,9 @@ def create_granule(data, metadata: dict, key: dict) -> dict:
     key_internal = zef.from_json_like(key)
     granule_internal = zef.create_signed_granule(data, metadata, timestamp, key_internal)
     result = granule_internal | zef.to_json_like | zef.collect
-    return _to_native_python_hard(result)
+    result = _to_native_python_hard(result)
+    result['__type'] = 'ET.SignedData'
+    return result
 
 
 def content_hash(data) -> dict:
@@ -269,28 +277,41 @@ def content_hash(data) -> dict:
     }
 
 
-def _verify_granule(granule: dict) -> bool:
+def _verify_signed_data(data: dict) -> dict:
     """
-    Verify the signature of an MSD SignedGranule dict.
+    Verify the signature of an MSD SignedData dict.
     
     Internal function - use verify() for the public API.
     
     Args:
-        granule: A signed granule dictionary with __type='ET.SignedGranule'.
+        data: A signed data dictionary with __type='ET.SignedData'.
     
     Returns:
-        True if the signature is valid, False otherwise.
+        A rich dict with signature_is_valid and extracted metadata.
     """
     import zef
     
-    granule_internal = zef.from_json_like(granule)
-    result = granule_internal | zef.verify_granite_signature | zef.collect
-    return bool(result)
+    # Convert to ET.SignedGranule for Zef compatibility
+    d = dict(data)
+    d['__type'] = 'ET.SignedGranule'
+    granule_internal = zef.from_json_like(d)
+    is_valid = bool(granule_internal | zef.verify_granite_signature | zef.collect)
+    
+    return {
+        'signature_is_valid': is_valid,
+        'signature_is_trusted': False,
+        'data_hash': content_hash(data['data']),
+        'metadata_hash': content_hash(data['metadata']),
+        'signature_timestamp': data['signature_time'],
+        'signing_key': data['key'],
+        'signing_key_trust_chain': [],
+        'trust_chain_breaches': [],
+    }
 
 
-def _verify_dict(signed_dict_data: dict) -> bool:
+def _verify_dict(signed_dict_data: dict) -> dict:
     """
-    Verify the embedded signature in a dict signed with sign_and_embed_dict.
+    Verify the embedded signature in a dict signed with embed().
     
     Internal function - use verify() for the public API.
     
@@ -301,10 +322,10 @@ def _verify_dict(signed_dict_data: dict) -> bool:
     4. Verifying the signature
     
     Args:
-        signed_dict_data: A dict with an '__msd' key from sign_and_embed_dict.
+        signed_dict_data: A dict with an '__msd' key from embed().
     
     Returns:
-        True if the signature is valid, False otherwise.
+        A rich dict with signature_is_valid and extracted metadata.
     
     Raises:
         ValueError: If no '__msd' key is found.
@@ -312,7 +333,7 @@ def _verify_dict(signed_dict_data: dict) -> bool:
     import zef
     
     if '__msd' not in signed_dict_data:
-        raise ValueError("No '__msd' key found in dict — this dict was not signed with sign_and_embed_dict")
+        raise ValueError("No '__msd' key found in dict — this dict was not signed with embed()")
     
     emoji_str = signed_dict_data['__msd']
     
@@ -341,11 +362,21 @@ def _verify_dict(signed_dict_data: dict) -> bool:
     granule_entity = zef.from_json_like(granule_dict)
     
     # 4. Verify
-    result = granule_entity | zef.verify_granite_signature | zef.collect
-    return bool(result)
+    is_valid = bool(granule_entity | zef.verify_granite_signature | zef.collect)
+    
+    return {
+        'signature_is_valid': is_valid,
+        'signature_is_trusted': False,
+        'data_hash': content_hash(original_data),
+        'metadata_hash': content_hash(sig_and_metadata_py.get('metadata', {})),
+        'signature_timestamp': sig_and_metadata_py.get('signature_time'),
+        'signing_key': sig_and_metadata_py.get('key'),
+        'signing_key_trust_chain': [],
+        'trust_chain_breaches': [],
+    }
 
 
-def _verify_file(signed_data: dict) -> bool:
+def _verify_file(signed_data: dict) -> dict:
     """
     Verify the embedded signature in a signed file (typed dict).
     
@@ -364,55 +395,76 @@ def _verify_file(signed_data: dict) -> bool:
     
     granule_without_data = zef.bytes_to_zef_value(embedded_bytes)
     
+    # Extract metadata from embedded data for the result
+    embedded_dict = granule_without_data | zef.to_json_like | zef.collect
+    embedded_py = _to_native_python_hard(embedded_dict)
+    
     # 3. Strip embedded data to get clean content
     clean_file = zef.strip_embedded_data(typed_file)
+    clean_typed_dict = _zef_to_typed_dict(clean_file)
     
     # 4. Insert clean data into granule to create complete structure
     complete_granule = zef.insert(granule_without_data, 'data', clean_file)
     
     # 5. Verify signature
-    result = complete_granule | zef.verify_granite_signature | zef.collect
-    return bool(result)
+    is_valid = bool(complete_granule | zef.verify_granite_signature | zef.collect)
+    
+    return {
+        'signature_is_valid': is_valid,
+        'signature_is_trusted': False,
+        'data_hash': content_hash(clean_typed_dict),
+        'metadata_hash': content_hash(embedded_py.get('metadata', {})),
+        'signature_timestamp': embedded_py.get('signature_time'),
+        'signing_key': embedded_py.get('key'),
+        'signing_key_trust_chain': [],
+        'trust_chain_breaches': [],
+    }
 
 
-def verify(data: dict) -> bool:
+def verify(data: dict) -> dict:
     """
-    Verify the signature of a granule, signed dict, or signed file.
+    Verify the signature of signed data, an embedded dict, or a signed file.
     
     Supports three input types:
     
-    1. SignedGranule dict (from create_granule):
-       {'__type': 'ET.SignedGranule', 'data': ..., 'signature': ..., ...}
+    1. SignedData dict (from sign()):
+       {'__type': 'ET.SignedData', 'data': ..., 'signature': ..., ...}
     
-    2. Dict with Unicode steganography signature (from sign_and_embed_dict):
+    2. Dict with Unicode steganography signature (from embed()):
        {'x': 42, '__msd': '🔏...'}
     
-    3. File dict with embedded signature (from sign_and_embed):
-       {'type': 'png'|'jpg'|'pdf'|..., 'content': bytes}
+    3. File dict with embedded signature (from embed()):
+       {'__type': 'PngImage', 'data': '<base64>'}
     
     Args:
-        data: A SignedGranule dict, a dict with __msd key, or a file dict
+        data: An ET.SignedData dict, a dict with __msd key, or a file dict
               with embedded signature.
     
     Returns:
-        True if the signature is valid, False otherwise.
+        A dict with verification results:
+        {
+            'signature_is_valid': bool,
+            'signature_is_trusted': False,
+            'data_hash': {'__type': 'MsdHash', 'hash': '...'},
+            'metadata_hash': {'__type': 'MsdHash', 'hash': '...'},
+            'signature_timestamp': {'__type': 'Time', ...},
+            'signing_key': {'__type': 'ET.Ed25519KeyPair', ...},
+            'signing_key_trust_chain': [],
+            'trust_chain_breaches': [],
+        }
     
     Raises:
         ValueError: If the input format is not recognized, the file type is
                     unsupported, or no embedded signature is found.
     
     Examples:
-        # Verify a granule
-        granule = msd.create_granule(data, metadata, key)
-        assert msd.verify(granule) == True
+        signed = msd.sign(data, metadata, key)
+        result = msd.verify(signed)
+        assert result['signature_is_valid'] == True
         
-        # Verify a signed dict
-        signed_dict = msd.sign_and_embed_dict(data, metadata, key)
-        assert msd.verify(signed_dict) == True
-        
-        # Verify a signed file
-        signed_png = msd.sign_and_embed({'__type': 'PngImage', 'data': base64_str}, metadata, key)
-        assert msd.verify(signed_png) == True
+        embedded = msd.embed(signed)
+        result = msd.verify(embedded)
+        assert result['signature_is_valid'] == True
     """
     # Handle both native Python dicts and Zef dict types
     # Zef dicts may not have .get() and hasattr may fail
@@ -426,15 +478,22 @@ def verify(data: dict) -> bool:
     except (KeyError, TypeError):
         pass
     
-    # Case 1: SignedGranule dict
+    # Case 1: ET.SignedData dict (new API)
+    if type_field == 'ET.SignedData':
+        return _verify_signed_data(data)
+    
+    # Reject old ET.SignedGranule — fail hard
     if type_field == 'ET.SignedGranule':
-        return _verify_granule(data)
+        raise ValueError(
+            "ET.SignedGranule is no longer supported. "
+            "Use msd.sign() which returns ET.SignedData."
+        )
     
     # Case 2: Typed data with embedded signature (PngImage, PDF, etc.)
     if type_field in TYPED_DATA_TYPES:
         return _verify_file(data)
     
-    # Case 3: Dict signed with sign_and_embed_dict (has __msd key)
+    # Case 3: Dict signed with embed() (has __msd key)
     has_msd = False
     try:
         _ = data['__msd']
@@ -446,7 +505,7 @@ def verify(data: dict) -> bool:
         return _verify_dict(data)
     
     raise ValueError(
-        "verify() expects a SignedGranule dict (with '__type': 'ET.SignedGranule'), "
+        "verify() expects an ET.SignedData dict (from msd.sign()), "
         "a typed data dict (with '__type' in " + str(sorted(TYPED_DATA_TYPES)) + "), "
         "or a dict with embedded signature (with '__msd' key). "
         "Got keys: " + str(list(data.keys()))
@@ -455,99 +514,108 @@ def verify(data: dict) -> bool:
 
 
 
-def sign_and_embed(data: dict, metadata: dict, key: dict) -> dict:
+def _embed_in_file(granule_dict: dict) -> dict:
     """
-    Sign data and embed the signature into it.
+    Embed signature data into a typed file (PngImage, PDF, etc.).
     
-    Accepts a typed dict with '__type' and 'data' keys:
-        {'__type': 'PngImage', 'data': '<base64>'}
-    
-    Returns the same typed dict format with the signature embedded in the content.
-    
-    Supported types: PngImage, JpgImage, WebpImage, SvgImage, PDF,
-    WordDocument, ExcelDocument, PowerpointDocument.
+    Internal function - use embed() for the public API.
     """
     import zef
     
-    _validate_typed_values(data)
-    _validate_typed_values(metadata)
-    if not _is_typed_data(data):
-        raise ValueError(
-            f"sign_and_embed expects a typed file dict with '__type' in {sorted(_FILE_EMBEDDABLE_TYPES)}. "
-            f"Got: {data.get('__type', '<missing>')}"
-        )
+    granule_entity = zef.from_json_like(granule_dict)
     
-    data_ = _typed_dict_to_zef(data)
+    # Get the file data as a Zef type
+    data_field = granule_entity['data']
     
-    # Strip any existing embedded data to ensure idempotent behavior
-    data_ = zef.strip_embedded_data(data_)
-    
-    timestamp = zef.now()
-    key_internal = zef.from_json_like(key)
-
-    # Embed signature data (without the actual file content)
-    binary_data_to_embed = (zef.create_signed_granule(data_, metadata, timestamp, key_internal) 
-        | zef.remove('data') 
+    # Build the "everything except data" payload and convert to bytes
+    binary_data_to_embed = (
+        granule_entity
+        | zef.remove('data')
         | zef.to_bytes
         | zef.collect
-    )    
-    signed = zef.embed_data(data_, binary_data_to_embed)
+    )
+    
+    # Embed into the file data
+    signed = zef.embed_data(data_field, binary_data_to_embed)
     return _zef_to_typed_dict(signed)
 
 
-
-
-def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
+def _embed_in_dict(granule_dict: dict) -> dict:
     """
-    Sign a plain Python dict and embed the metadata + signature using Unicode steganography.
+    Embed signature data into a plain dict using Unicode steganography.
     
-    The cryptographic payload (metadata, timestamp, signature, public key) is compressed,
-    base64-encoded, and hidden inside invisible Unicode variation selectors attached to a
-    single emoji character (🔏). This keeps the dict clean and human-readable — the
-    signature never clutters the output.
-    
-    The returned dict contains all original key-value pairs plus an `__msd` key whose
-    value looks like a single emoji but carries the full steganographic payload.
-    Survives JSON round-trips.
-    
-    See sign_and_embed() for signing binary file formats (PNG, JPG, PDF, etc.).
+    Internal function - use embed() for the public API.
     """
     import zef
     
-    if not isinstance(data, dict):
-        raise ValueError("sign_and_embed_dict expects a dictionary as input")
-
-    if '__msd' in data:
-        raise ValueError("Input data already contains an '__msd' key, cannot embed MSD data without overwriting existing key")
-    
-    if not isinstance(metadata, dict):
-        raise ValueError("Metadata must be a dictionary")
-    
-    _validate_typed_values(data)
-    _validate_typed_values(metadata)
-
-    timestamp = zef.now()
-    key_internal = zef.from_json_like(key)
-    granule = zef.create_signed_granule(data, metadata, timestamp, key_internal)
+    granule_entity = zef.from_json_like(granule_dict)
     
     sig_and_metadata = {
-        'metadata': granule['metadata'],
-        'signature_time': granule['signature_time'],
-        'signature': granule['signature'],
-        'key': granule['key']
+        'metadata': granule_entity['metadata'],
+        'signature_time': granule_entity['signature_time'],
+        'signature': granule_entity['signature'],
+        'key': granule_entity['key']
     }
-
+    
     sig_and_metadata_bytes = zef.collect(sig_and_metadata).to_bytes()
     sig_and_metadata_bytes_compressed = zef.zstd_compress(sig_and_metadata_bytes)
     sig_and_metadata_bytes_compressed_b64 = zef.to_base64(sig_and_metadata_bytes_compressed.compressed_bytes)
     encoded = zef.encode_secret_string_in_emoji(sig_and_metadata_bytes_compressed_b64, '🔏')
-
+    
+    original_data = granule_dict['data']
     return {
-        **data,
+        **original_data,
         '__msd': str(encoded)
     }
 
+
+def embed(signed_data: dict) -> dict:
+    """
+    Embed the signature from an ET.SignedData dict into its data.
     
+    Auto-detects format:
+    - Typed file dict (PngImage, PDF, etc.) → binary embedding in file bytes
+    - Plain dict → Unicode steganography (__msd key)
+    
+    Args:
+        signed_data: An ET.SignedData dict from sign().
+    
+    Returns:
+        For file data: a typed dict (same __type) with embedded signature.
+        For dict data: the original dict plus an __msd key.
+    
+    Raises:
+        ValueError: If input is not an ET.SignedData dict, or if the data
+                    type cannot be embedded (e.g. string, int).
+    """
+    type_field = signed_data.get('__type') if isinstance(signed_data, dict) else None
+    
+    if type_field not in ('ET.SignedData', 'ET.SignedGranule'):
+        raise ValueError(
+            "embed() expects an ET.SignedData dict (from msd.sign()). "
+            f"Got __type={type_field!r}"
+        )
+    
+    # Convert to ET.SignedGranule for Zef compatibility
+    sd = dict(signed_data)
+    sd['__type'] = 'ET.SignedGranule'
+    
+    data = sd['data']
+    if _is_typed_data(data):
+        return _embed_in_file(sd)
+    elif isinstance(data, dict):
+        if '__msd' in data:
+            raise ValueError(
+                "Data dict already contains an '__msd' key. "
+                "Cannot embed without overwriting existing key."
+            )
+        return _embed_in_dict(sd)
+    else:
+        raise ValueError(
+            f"Cannot embed signature into {type(data).__name__} data. "
+            f"embed() supports typed file dicts (PngImage, PDF, etc.) and plain dicts. "
+            f"For other data types, use the ET.SignedData dict directly."
+        )
 
 
 
@@ -555,7 +623,7 @@ def sign_and_embed_dict(data: dict, metadata: dict, key: dict) -> dict:
 def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
     """
     Extract the full sig_and_metadata structure from a dict that was signed
-    with sign_and_embed_dict. Reverses the Unicode steganography encoding chain:
+    with embed(). Reverses the Unicode steganography encoding chain:
     emoji → decode → base64 → decompress → bytes → data.
     
     Returns:
@@ -568,11 +636,11 @@ def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
     import zef
     
     if '__msd' not in signed_dict_data:
-        raise ValueError("No '__msd' key found in dict — this dict was not signed with sign_and_embed_dict")
+        raise ValueError("No '__msd' key found in dict — this dict was not signed with embed()")
     
     emoji_str = signed_dict_data['__msd']
     
-    # Reverse the Unicode steganography encoding chain from sign_and_embed_dict:
+    # Reverse the Unicode steganography encoding chain from embed():
     # 1. Decode steganographic payload from emoji → base64 string
     # 2. Base64 → raw compressed bytes
     # 3. Wrap in ET.ZstdCompressed entity → decompress → original bytes
@@ -598,8 +666,8 @@ def extract_metadata(signed_data: dict) -> dict:
     
     Args:
         signed_data: Either:
-            - A dict with an '__msd' key (from sign_and_embed_dict), or
-            - A typed data dict with '__type' (from sign_and_embed).
+            - A dict with an '__msd' key (from embed()), or
+            - A typed data dict with '__type' (from embed()).
     
     Returns:
         The metadata dictionary that was attached during signing.
@@ -609,7 +677,7 @@ def extract_metadata(signed_data: dict) -> dict:
     """
     import zef
     
-    # Case 1: Dict signed with sign_and_embed_dict
+    # Case 1: Dict signed with embed()
     if '__msd' in signed_data:
         msd_data = _extract_msd_from_dict(signed_data)
         return msd_data.get('metadata', {})
@@ -639,8 +707,8 @@ def extract_signature(signed_data: dict) -> dict:
     
     Args:
         signed_data: Either:
-            - A dict with an '__msd' key (from sign_and_embed_dict), or
-            - A typed data dict with '__type' (from sign_and_embed).
+            - A dict with an '__msd' key (from embed()), or
+            - A typed data dict with '__type' (from embed()).
     
     Returns:
         A dictionary with signature information including:
@@ -651,7 +719,7 @@ def extract_signature(signed_data: dict) -> dict:
     """
     import zef
     
-    # Case 1: Dict signed with sign_and_embed_dict
+    # Case 1: Dict signed with embed()
     if '__msd' in signed_data:
         msd_data = _extract_msd_from_dict(signed_data)
         return {
@@ -687,7 +755,7 @@ def strip_metadata_and_signature(signed_data: dict) -> dict:
     returning the original content as a typed dict.
     
     Args:
-        signed_data: A typed data dict with '__type' (from sign_and_embed).
+        signed_data: A typed data dict with '__type' (from embed()).
     
     Returns:
         A typed data dict with the same '__type' but clean content

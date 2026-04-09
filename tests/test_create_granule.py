@@ -1,16 +1,11 @@
 #%%
 """
-Test file for create_granule function.
+Test file for sign() function — structure and verification tests.
 
-NOTE: This function is NON-DETERMINISTIC because it uses zef.now() internally.
+sign() is NON-DETERMINISTIC because it uses zef.now() internally.
 Each call produces a different signature_time and therefore a different signature.
 
-This means we CANNOT use the standard test pattern with pre-computed expected values.
-To properly test this function deterministically, we would need:
-- An FX system with deterministic replay capability
-- The ability to mock/inject the time value
-
-Current approach: We test the structure and verify the granule passes verification.
+Current approach: Test structure, check data/metadata match, verify signature.
 """
 
 from zef import *
@@ -26,70 +21,60 @@ sample_key = {
 }
 
 
-# Test cases for create_granule(data, metadata, key)
-# Note: create_granule uses zef.now() internally, so we test the granule structure
-# and verify it passes verification
+# Test cases for sign(data, metadata, key)
 test_cases = [
   ET.UnitTest(
-    description='Create granule with string data',
+    description='Sign string data',
     args=['Hello, Meta Structured Data!', {'creator': 'Alice', 'description': 'sample data'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with empty string',
+    description='Sign empty string',
     args=['', {'creator': 'Test'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with integer data',
+    description='Sign integer data',
     args=[42, {'type': 'number'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with float data',
+    description='Sign float data',
     args=[3.14159, {'type': 'pi'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with boolean True',
+    description='Sign boolean True',
     args=[True, {'type': 'boolean'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with boolean False',
+    description='Sign boolean False',
     args=[False, {'type': 'boolean'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with None/nil',
+    description='Sign None/nil',
     args=[nil, {'type': 'null'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with simple dict data',
+    description='Sign simple dict data',
     args=[{'message': 'Hello'}, {'creator': 'Bob'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with nested dict data',
+    description='Sign nested dict data',
     args=[{'outer': {'inner': 'value', 'count': 42}}, {'schema': 'v1'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with list data',
+    description='Sign list data',
     args=[[1, 2, 3], {'type': 'array'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with mixed list',
+    description='Sign mixed list',
     args=[[1, 'two', 3.0, True, nil], {'type': 'mixed'}, sample_key],
   ),
   ET.UnitTest(
-    description='Create granule with empty metadata',
+    description='Sign with empty metadata',
     args=['data', {}, sample_key],
   ),
 ]
 
 
 #%%
-# ============================================================================
-# Test Execution - using Python loops since msd functions can't be used in ops
-# For create_granule we test:
-# 1. The granule has the correct structure
-# 2. The data and metadata match input
-# 3. The granule passes verification
-# ============================================================================
-
 def run_tests(test_cases):
     """Run all tests and report results."""
     failed_tests = []
@@ -98,11 +83,11 @@ def run_tests(test_cases):
         args = test['args']
         data, metadata, key = args
         
-        granule = msd.create_granule(data, metadata, key)
+        signed = msd.sign(data, metadata, key)
         
         # Check structure
         required_keys = {'__type', 'data', 'metadata', 'signature_time', 'signature', 'key'}
-        actual_keys = set(granule.keys())
+        actual_keys = set(signed.keys())
         if not required_keys.issubset(actual_keys):
             failed_tests.append({
                 'description': test['description'],
@@ -110,51 +95,51 @@ def run_tests(test_cases):
             })
             continue
         
-        # Check __type
-        if granule['__type'] != 'ET.SignedGranule':
+        # Check __type is ET.SignedData
+        if signed['__type'] != 'ET.SignedData':
             failed_tests.append({
                 'description': test['description'],
-                'error': f'Wrong __type: {granule["__type"]}',
+                'error': f'Wrong __type: {signed["__type"]}',
             })
             continue
         
         # Check data matches input
-        # Normalize nil → None since SDK returns native Python types
         expected_data = None if data == nil else data
-        if granule['data'] != expected_data:
+        if signed['data'] != expected_data:
             failed_tests.append({
                 'description': test['description'],
-                'error': f'Data mismatch: expected {data}, got {granule["data"]}',
+                'error': f'Data mismatch: expected {data}, got {signed["data"]}',
             })
             continue
         
         # Check metadata matches input
-        if granule['metadata'] != metadata:
+        if signed['metadata'] != metadata:
             failed_tests.append({
                 'description': test['description'],
-                'error': f'Metadata mismatch: expected {metadata}, got {granule["metadata"]}',
+                'error': f'Metadata mismatch: expected {metadata}, got {signed["metadata"]}',
             })
             continue
         
         # Check it verifies correctly
-        is_valid = msd.verify(granule)
-        if not is_valid:
+        result = msd.verify(signed)
+        if not result['signature_is_valid']:
             failed_tests.append({
                 'description': test['description'],
-                'error': 'Granule failed verification',
+                'error': 'Signature verification failed',
             })
-            continue
     
     return failed_tests
 
+#%%
+failed = run_tests(test_cases)
+total = len(test_cases)
+passed = total - len(failed)
 
-failed_tests = run_tests(test_cases)
-
-if len(failed_tests) == 0:
-    print(f"✅ All {len(test_cases)} tests passed!")
+if failed:
+    print(f"❌ {len(failed)}/{total} tests failed:")
+    for f in failed:
+        print(f"  - {f['description']}: {f['error']}")
 else:
-    print(f"❌ {len(failed_tests)} test(s) failed:")
-    for test in failed_tests:
-        print("\n================================")
-        print(f"  - {test['description']}")
-        print(f"    Error: {test['error']}")
+    print(f"✅ All {total} tests passed!")
+
+print(f"\n{'✅' if not failed else '❌'} All {total} tests: {passed} passed, {len(failed)} failed")

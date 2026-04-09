@@ -50,41 +50,44 @@ key = msd.load_key("my_key.json")
 with open("document.pdf", "rb") as f:
     content = f.read()
 
-# Sign and embed in one step
-signed = msd.sign_and_embed(
-    data={'type': 'pdf', 'content': content},
+# Sign and embed in two steps
+signed = msd.sign(
+    data={'__type': 'PDF', 'data': base64.b64encode(content).decode()},
     metadata={'author': 'Alice', 'department': 'Engineering'},
     key=key
 )
+embedded = msd.embed(signed)
 
 # Save the signed file — it's still a valid PDF!
 with open("document_signed.pdf", "wb") as f:
-    f.write(signed['content'])
+    f.write(base64.b64decode(embedded['data']))
 ```
 
 ### Verifying a File
 
 ```python
+import base64
+
 # Load the signed file
 with open("document_signed.pdf", "rb") as f:
     content = f.read()
 
-# Verify in one step
-is_valid = msd.verify({'type': 'pdf', 'content': content})
-# Returns True if signature matches content, False otherwise
+# Verify
+result = msd.verify({'__type': 'PDF', 'data': base64.b64encode(content).decode()})
+result['signature_is_valid']  # True if signature matches content
 ```
 
 ### Extracting Metadata
 
 ```python
-metadata = msd.extract_metadata({'type': 'pdf', 'content': content})
+metadata = msd.extract_metadata({'__type': 'PDF', 'data': base64.b64encode(content).decode()})
 # {'author': 'Alice', 'department': 'Engineering'}
 ```
 
 ### Stripping Signatures
 
 ```python
-clean = msd.strip_metadata_and_signature({'type': 'pdf', 'content': content})
+clean = msd.strip_metadata_and_signature({'__type': 'PDF', 'data': base64.b64encode(content).decode()})
 # Returns the original file without any MSD data
 ```
 
@@ -94,12 +97,12 @@ clean = msd.strip_metadata_and_signature({'type': 'pdf', 'content': content})
 
 | Type String | Format | Extension | Embedding Mechanism |
 |-------------|--------|-----------|---------------------|
-| `png` | PNG Image | .png | tEXt/zTXt chunks |
-| `jpg` | JPEG Image | .jpg, .jpeg | APP markers / EXIF |
-| `pdf` | PDF Document | .pdf | Document metadata |
-| `word_document` | Word | .docx | Custom XML parts |
-| `excel_document` | Excel | .xlsx | Custom XML parts |
-| `powerpoint_document` | PowerPoint | .pptx | Custom XML parts |
+| `PngImage` | PNG Image | .png | tEXt/zTXt chunks |
+| `JpgImage` | JPEG Image | .jpg, .jpeg | APP markers / EXIF |
+| `PDF` | PDF Document | .pdf | Document metadata |
+| `WordDocument` | Word | .docx | Custom XML parts |
+| `ExcelDocument` | Excel | .xlsx | Custom XML parts |
+| `PowerpointDocument` | PowerPoint | .pptx | Custom XML parts |
 
 ---
 
@@ -110,9 +113,9 @@ MSD file embedding works in three layers:
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    User API Layer                   │
-│  sign_and_embed() / verify() / extract_metadata()   │
+│     sign() / embed() / verify() / extract_metadata() │
 ├─────────────────────────────────────────────────────┤
-│                   Granule Layer                     │
+│                   Signed Data Layer                 │
 │     Cryptographic signing and verification          │
 ├─────────────────────────────────────────────────────┤
 │                  Embedding Layer                    │
@@ -125,18 +128,18 @@ MSD file embedding works in three layers:
 The user works with simple Python dicts:
 
 ```python
-{'type': 'png', 'content': bytes}
+{'__type': 'PngImage', 'data': '<base64>'}
 ```
 
 The SDK handles all complexity internally.
 
-### Layer 2: Granule Layer
+### Layer 2: Signed Data Layer
 
-MSD's core data unit is the **Granule** — a signed bundle of data:
+MSD's core data unit is **SignedData** — a signed bundle of data:
 
 ```python
 {
-    '__type': 'ET.SignedGranule',
+    '__type': 'ET.SignedData',
     'data': <the file content>,
     'metadata': {'author': 'Alice', ...},
     'signature_time': {'__type': 'Time', ...},
@@ -410,17 +413,17 @@ def verify(data: dict) -> bool:
     except (KeyError, TypeError):
         type_field = None
     
-    if type_field == 'ET.SignedGranule':
-        return _verify_granule(data)
+    if type_field == 'ET.SignedData':
+        return _verify_signed_data(data)
     
     # Check for file dict format
     # ... etc
 ```
 
 This allows the same `verify()` function to work with:
-- Granules created by `create_granule()` (Zef dict)
-- Signed files created by `sign_and_embed()` (Python dict)
-- Granules loaded from JSON (Python dict)
+- Signed data created by `sign()` (ET.SignedData)
+- Signed files created by `sign()` + `embed()` (typed dict)
+- Signed dicts from `embed()` (dict with __msd key)
 
 ---
 

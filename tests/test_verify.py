@@ -3,99 +3,100 @@ from zef import *
 import msd_sdk as msd
 
 
-# Test cases for verify() - takes a granule dict and returns True/False
+# Test cases for verify() - takes a signed data dict and returns a rich dict
+# All hardcoded test data uses ET.SignedData (not ET.SignedGranule)
 test_cases = [
   ET.UnitTest('🍃-d0b48b579907088f75eb',
-    description='Verify valid granule with string data (complete metadata)',
+    description='Verify valid signed data with string data (complete metadata)',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'hello signable world',
         'metadata': {'author': 'test-suite', 'version': '1.0', 'description': 'A test document for signature verification'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-f5802869281af8cb065199f585bcff421e21a8d3421ea3406682ff428c1a7a89bea86b7bb7eeb5'
-            'e5d181e43d3c98544ce25aeba15fd08360d681803cef058403'
+            '🔏-ab36b3ddecac1278322795f255a6a3d2f5ba5b58894c7ab4c6f1dc0df0ea2bd9'
+            '67415c5ccda7913a636438cc6fb7d78d6e6c20d74ca7ac1301e3856ab077e507'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
     expected=True
   ),
   ET.UnitTest('🍃-86639ad287701cc4df6a',
-    description='Verify tampered granule (data modified)',
+    description='Verify tampered data (data modified)',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'TAMPERED DATA',
         'metadata': {'author': 'test-suite', 'version': '1.0', 'description': 'A test document for signature verification'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-f5802869281af8cb065199f585bcff421e21a8d3421ea3406682ff428c1a7a89bea86b7bb7eeb5'
-            'e5d181e43d3c98544ce25aeba15fd08360d681803cef058403'
+            '🔏-ab36b3ddecac1278322795f255a6a3d2f5ba5b58894c7ab4c6f1dc0df0ea2bd9'
+            '67415c5ccda7913a636438cc6fb7d78d6e6c20d74ca7ac1301e3856ab077e507'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
     expected=False
   ),
   ET.UnitTest('🍃-feba3f8a03f1e373273a',
-    description='Verify tampered granule (metadata modified)',
+    description='Verify tampered metadata',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'hello signable world',
         'metadata': {'creator': 'Eve'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-f5802869281af8cb065199f585bcff421e21a8d3421ea3406682ff428c1a7a89bea86b7bb7eeb5'
-            'e5d181e43d3c98544ce25aeba15fd08360d681803cef058403'
+            '🔏-ab36b3ddecac1278322795f255a6a3d2f5ba5b58894c7ab4c6f1dc0df0ea2bd9'
+            '67415c5ccda7913a636438cc6fb7d78d6e6c20d74ca7ac1301e3856ab077e507'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
     expected=False
   ),
   ET.UnitTest('🍃-f4f3bda5e8c1f6db6301',
-    description='Verify valid granule with dict data',
+    description='Verify valid signed data with dict data',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': {'message': 'hello', 'count': 42, 'nested': {'a': 1}},
         'metadata': {'author': 'test-suite'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-4035792d925fb2d5e5af072be0e7768edf8e6bd781ca41dc389e9a27b858f40a5d4f8436e55569'
-            'e0f3cab50f42ddb4233b194c3c4840d1e41cff23d059765106'
+            '🔏-2e7fd8c339cfa68944ff9a8001813f6889c223df157f73dfdd96d434aff587ed'
+            '1a47c8dd0fe48c93d45659f2f7af59e53c0ca31f96483ef7656c822a6434000f'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
@@ -105,10 +106,10 @@ test_cases = [
     description='Verify tampered signature (invalid signature bytes)',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'hello signable world',
         'metadata': {'author': 'test-suite', 'version': '1.0', 'description': 'A test document for signature verification'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
@@ -118,8 +119,8 @@ test_cases = [
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
@@ -129,20 +130,20 @@ test_cases = [
     description='Verify wrong public key',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'hello signable world',
         'metadata': {'author': 'test-suite', 'version': '1.0', 'description': 'A test document for signature verification'},
-        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775632796'},
+        'signature_time': {'__type': 'Time', 'zef_unix_time': '1775708365'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-f5802869281af8cb065199f585bcff421e21a8d3421ea3406682ff428c1a7a89bea86b7bb7eeb5'
-            'e5d181e43d3c98544ce25aeba15fd08360d681803cef058403'
+            '🔏-ab36b3ddecac1278322795f255a6a3d2f5ba5b58894c7ab4c6f1dc0df0ea2bd9'
+            '67415c5ccda7913a636438cc6fb7d78d6e6c20d74ca7ac1301e3856ab077e507'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
+          '__uid': '🍃-ab3a364813a652eb45f9',
           'public_key': '🔑-0000000000000000000000000000000000000000000000000000000000000000'
         }
       }
@@ -153,21 +154,21 @@ test_cases = [
     description='Verify tampered timestamp',
     args=[
       {
-        '__type': 'ET.SignedGranule',
+        '__type': 'ET.SignedData',
         'data': 'hello signable world',
         'metadata': {'author': 'test-suite', 'version': '1.0', 'description': 'A test document for signature verification'},
         'signature_time': {'__type': 'Time', 'zef_unix_time': '9999999999'},
         'signature': {
           '__type': 'ET.Ed25519Signature',
           'signature': (
-            '🔏-f5802869281af8cb065199f585bcff421e21a8d3421ea3406682ff428c1a7a89bea86b7bb7eeb5'
-            'e5d181e43d3c98544ce25aeba15fd08360d681803cef058403'
+            '🔏-ab36b3ddecac1278322795f255a6a3d2f5ba5b58894c7ab4c6f1dc0df0ea2bd9'
+            '67415c5ccda7913a636438cc6fb7d78d6e6c20d74ca7ac1301e3856ab077e507'
           )
         },
         'key': {
           '__type': 'ET.Ed25519KeyPair',
-          '__uid': '🍃-a3fe2c45e2b59d0c2220',
-          'public_key': '🔑-3b1c90f06a5361b118bb7799e8386ecaacacec706cd7b6e2eade8c1ad32e9c26'
+          '__uid': '🍃-ab3a364813a652eb45f9',
+          'public_key': '🔑-c824bfc53647a6eb2aceca5eecf5cb96bf039983758a3e04c9f0891645cc6862'
         }
       }
     ],
@@ -178,7 +179,7 @@ test_cases = [
 
 #%%
 # ============================================================================
-# Test Execution - using Python loops since msd functions can't be used in ops
+# Test Execution
 # ============================================================================
 
 def run_tests(test_cases):
@@ -187,62 +188,102 @@ def run_tests(test_cases):
     
     for test in test_cases:
         args = test['args']
-        evaluated = msd.verify(*args)
+        result = msd.verify(*args)
         expected = test['expected']
         
+        # Result must be a dict
+        if not isinstance(result, dict):
+            failed_tests.append({
+                'description': test['description'],
+                'expected': expected,
+                'error': f'Expected dict, got {type(result).__name__}',
+            })
+            continue
+        
+        # Must have signature_is_valid key
+        if 'signature_is_valid' not in result:
+            failed_tests.append({
+                'description': test['description'],
+                'expected': expected,
+                'error': 'Missing signature_is_valid key',
+            })
+            continue
+        
+        evaluated = result['signature_is_valid']
         if expected != evaluated:
             failed_tests.append({
                 'description': test['description'],
-                'args': args,
                 'expected': expected,
                 'evaluated': evaluated,
+            })
+            continue
+        
+        # Check structure of result dict
+        required_keys = {
+            'signature_is_valid', 'signature_is_trusted', 'data_hash',
+            'metadata_hash', 'signature_timestamp', 'signing_key',
+            'signing_key_trust_chain', 'trust_chain_breaches'
+        }
+        missing = required_keys - set(result.keys())
+        if missing:
+            failed_tests.append({
+                'description': test['description'],
+                'error': f'Missing keys in result: {missing}',
+            })
+            continue
+        
+        # Trust fields must be hardcoded values
+        if result['signature_is_trusted'] is not False:
+            failed_tests.append({
+                'description': test['description'],
+                'error': f'signature_is_trusted should be False, got {result["signature_is_trusted"]}',
+            })
+        if result['signing_key_trust_chain'] != []:
+            failed_tests.append({
+                'description': test['description'],
+                'error': f'signing_key_trust_chain should be [], got {result["signing_key_trust_chain"]}',
+            })
+        if result['trust_chain_breaches'] != []:
+            failed_tests.append({
+                'description': test['description'],
+                'error': f'trust_chain_breaches should be [], got {result["trust_chain_breaches"]}',
             })
     
     return failed_tests
 
 
-failed_tests = run_tests(test_cases)
-
-if len(failed_tests) == 0:
-    print(f"✅ All {len(test_cases)} tests passed!")
-else:
-    print(f"❌ {len(failed_tests)} test(s) failed:")
-    for test in failed_tests:
-        print("\n================================")
-        print(f"  - {test['description']}")
-        print(f"    Expected: {test['expected']}")
-        print(f"    Got: {test['evaluated']}")
+# Also test that ET.SignedGranule is rejected
+def run_reject_test():
+    """Test that verify() rejects ET.SignedGranule with a clear error."""
+    try:
+        msd.verify({
+            '__type': 'ET.SignedGranule',
+            'data': 'test',
+            'metadata': {},
+        })
+        return [{'description': 'Reject ET.SignedGranule', 'error': 'Should have raised ValueError'}]
+    except ValueError as e:
+        if 'ET.SignedGranule' in str(e) and 'no longer supported' in str(e):
+            return []  # expected
+        return [{'description': 'Reject ET.SignedGranule', 'error': f'Wrong error message: {e}'}]
+    except Exception as e:
+        return [{'description': 'Reject ET.SignedGranule', 'error': f'Wrong exception: {type(e).__name__}: {e}'}]
 
 
 #%%
-# ============================================================================
-# Generation pipeline - uncomment to generate UIDs and expected values
-# ============================================================================
+failed = run_tests(test_cases)
+reject_failed = run_reject_test()
+all_failed = failed + reject_failed
+total = len(test_cases) + 1  # +1 for reject test
+passed = total - len(all_failed)
 
-# def generate_test_cases_with_expected():
-#     """Generate test cases with UIDs and expected values filled in."""
-#     updated_cases = []
-#     for test in test_cases:
-#         # Add UID if missing
-#         if not has_uid(test):
-#             test = test | set_uid(generate_uid) | collect
-        
-#         # Calculate expected value
-#         args = test['args']
-#         expected = msd.verify(*args)
-        
-#         # Build new UnitTest with expected value
-#         test = ET.UnitTest(
-#             uid(test),
-#             description=test['description'],
-#             args=args,
-#             expected=expected
-#         )
-#         updated_cases.append(test)
-    
-#     # Print for copy-paste back into test_cases
-#     print(updated_cases | repr_ | collect)
-#     return updated_cases
+if all_failed:
+    print(f"❌ {len(all_failed)}/{total} tests failed:")
+    for f in all_failed:
+        desc = f.get('description', '?')
+        err = f.get('error', f'expected {f.get("expected")}, got {f.get("evaluated")}')
+        print(f"  - {desc}: {err}")
+else:
+    print(f"✅ All {total} tests passed!")
 
-# # Uncomment to generate:
-# generate_test_cases_with_expected() | repr_ | to_clipboard | run
+print(f"\n{'✅' if not all_failed else '❌'} All {total} tests: {passed} passed, {len(all_failed)} failed")

@@ -52,18 +52,20 @@ import msd_sdk as msd
 
 key = msd.generate_key_pair(unendorsed=True)
 
-signed_png = msd.sign_and_embed(
+signed = msd.sign(
     {'__type': 'PngImage', 'data': png_b64},
     {'author': 'Alice', 'description': 'Photo'},
     key
 )
+signed_png = msd.embed(signed)
 # Returns: {'__type': 'PngImage', 'data': '<base64 with embedded signature>'}
 ```
 
 ### Verification
 
 ```python
-msd.verify(signed_png)  # True
+result = msd.verify(signed_png)
+result['signature_is_valid']  # True
 ```
 
 ### Extracting Metadata and Signature
@@ -90,15 +92,16 @@ h = msd.content_hash({'__type': 'PngImage', 'data': png_b64})
 # {'__type': 'MsdHash', 'hash': '7a3f1e...'}
 ```
 
-### In Granules
+### In Signed Data
 
 ```python
-granule = msd.create_granule(
+signed = msd.sign(
     {'__type': 'PngImage', 'data': png_b64},
     {'photographer': 'Bob'},
     key
 )
-msd.verify(granule)  # True
+result = msd.verify(signed)
+result['signature_is_valid']  # True
 ```
 
 ## Saving Signed Files to Disk
@@ -107,15 +110,16 @@ msd.verify(granule)  # True
 import base64
 
 # Sign
-signed = msd.sign_and_embed(
+signed = msd.sign(
     {'__type': 'PngImage', 'data': base64.b64encode(open('input.png', 'rb').read()).decode()},
     {'author': 'Alice'},
     key
 )
+signed_file = msd.embed(signed)
 
 # Save signed file
 with open('signed.png', 'wb') as f:
-    f.write(base64.b64decode(signed['data']))
+    f.write(base64.b64decode(signed_file['data']))
 
 # The signed file is a valid PNG — viewable in any image viewer,
 # but also carries the cryptographic signature.
@@ -129,6 +133,6 @@ This means:
 
 - `{'__type': 'PngImage', 'data': '...'}` → treated as a PNG image
 - `{'message': 'hello'}` → treated as a regular dict
-- `{'__type': 'ET.SignedGranule', ...}` → treated as a signed granule
+- `{'__type': 'ET.SignedData', ...}` — treated as signed data
 
 If you have data that happens to have an `__type` key matching a recognized type name, it will be interpreted as that type. Rename the key to avoid collisions.

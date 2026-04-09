@@ -1,12 +1,11 @@
 #%%
 """
-Test file for sign_and_embed (file signing) and generate_key_pair.
+Test file for embed() with file types and generate_key_pair.
 
-Tests binary file signing/verification pipeline for supported formats
-and key pair generation.
+Tests binary file signing/verification pipeline:
+  sign → embed → verify → extract_metadata → strip_metadata_and_signature
 
-NOTE: Test data (dicts, file bytes) must be plain Python types, not stored 
-in ET.UnitTest args, because SDK functions check isinstance(data, dict).
+NOTE: Test data (dicts, file bytes) must be plain Python types.
 """
 
 from zef import *
@@ -21,26 +20,10 @@ sample_key = {
   'public_key': '🔑-8614d100b3cdb5ff6c37c846760dd1990f637994bd985d9486f212133bfd6284'
 }
 
-# Locate test fixtures
-test_dir = os.path.dirname(os.path.abspath(__file__))
-fixtures_dir = os.path.join(test_dir, '..', 'tests', 'fixtures')
-if not os.path.isdir(fixtures_dir):
-    fixtures_dir = os.path.join(test_dir, 'fixtures')
-
-
-def load_fixture(filename):
-    """Load a test fixture file as bytes."""
-    path = os.path.join(fixtures_dir, filename)
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            return f.read()
-    return None
-
 
 # ============================================================================
 # Test 1: generate_key_pair
 # ============================================================================
-# UIDs: 🍃-905157fb968bdb0ec48c, 🍃-22d151736e1f667890d4
 
 test_cases_keygen = [
   ('🍃-905157fb968bdb0ec48c', 'Generate unendorsed key pair'),
@@ -85,8 +68,9 @@ def run_keygen_tests(test_cases):
     
     # Test: key can be used to sign and verify
     try:
-        granule = msd.create_granule('test data', {'test': True}, key)
-        if not msd.verify(granule):
+        signed = msd.sign('test data', {'test': True}, key)
+        result = msd.verify(signed)
+        if not result['signature_is_valid']:
             failed.append({'description': 'Generate unendorsed key pair', 'error': 'Generated key cannot sign/verify'})
     except Exception as e:
         failed.append({'description': 'Generate unendorsed key pair', 'error': f'Sign/verify with generated key failed: {e}'})
@@ -95,22 +79,11 @@ def run_keygen_tests(test_cases):
 
 
 # ============================================================================
-# Test 2: sign_and_embed for file types (only run if fixtures exist)
+# Test 2: sign + embed for file types
 # ============================================================================
-# UIDs: 🍃-68fdcc0e873b394ead26, 🍃-d6bf5c02c7d2f77875ae, 🍃-b6c1099d690acc4979ea
-
-# Build file test cases dynamically based on available fixtures
-file_fixtures = {
-    'png': 'sample.png',
-    'jpg': 'sample.jpg',
-    'pdf': 'sample.pdf',
-    'word_document': 'sample.docx',
-    'excel_document': 'sample.xlsx',
-    'powerpoint_document': 'sample.pptx',
-}
 
 test_cases_files = [
-  ('🍃-68fdcc0e873b394ead26', 'Sign and verify file round-trip'),
+  ('🍃-68fdcc0e873b394ead26', 'Sign, embed and verify file round-trip'),
   ('🍃-d6bf5c02c7d2f77875ae', 'Extract metadata from signed file'),
   ('🍃-b6c1099d690acc4979ea', 'Strip signature returns usable content'),
 ]
@@ -136,7 +109,7 @@ def _create_minimal_png():
 
 
 def run_file_tests(test_cases):
-    """Test sign_and_embed for file types."""
+    """Test sign + embed for file types."""
     failed = []
     
     import base64
@@ -145,47 +118,48 @@ def run_file_tests(test_cases):
     png_bytes = _create_minimal_png()
     png_b64 = base64.b64encode(png_bytes).decode()
     
-    # Test: sign_and_embed + verify round-trip
+    # Test: sign + embed + verify round-trip
     file_data = {'__type': 'PngImage', 'data': png_b64}
     metadata = {'creator': 'test', 'format': 'png'}
     
     try:
-        signed = msd.sign_and_embed(file_data, metadata, sample_key)
+        signed = msd.sign(file_data, metadata, sample_key)
+        embedded = msd.embed(signed)
     except Exception as e:
-        failed.append({'description': 'Sign and verify file round-trip', 'error': f'sign_and_embed raised: {e}'})
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': f'sign/embed raised: {e}'})
         return failed
     
-    if not isinstance(signed, dict) or '__type' not in signed or 'data' not in signed:
-        failed.append({'description': 'Sign and verify file round-trip', 'error': f'Invalid return structure'})
+    if not isinstance(embedded, dict) or '__type' not in embedded or 'data' not in embedded:
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': f'Invalid return structure'})
         return failed
     
-    if signed['__type'] != 'PngImage':
-        failed.append({'description': 'Sign and verify file round-trip', 'error': f'Type changed: {signed["__type"]}'})
+    if embedded['__type'] != 'PngImage':
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': f'Type changed: {embedded["__type"]}'})
         return failed
     
-    if not isinstance(signed['data'], str):
-        failed.append({'description': 'Sign and verify file round-trip', 'error': f'Data not str: {type(signed["data"])}'})
+    if not isinstance(embedded['data'], str):
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': f'Data not str: {type(embedded["data"])}'})
         return failed
     
-    # Signed data (base64) should be larger (has embedded data)
-    if len(signed['data']) <= len(png_b64):
-        failed.append({'description': 'Sign and verify file round-trip', 'error': 'Signed data not larger than original'})
+    # Embedded data (base64) should be larger (has embedded data)
+    if len(embedded['data']) <= len(png_b64):
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': 'Signed data not larger than original'})
         return failed
     
     # Verify the signed file
     try:
-        is_valid = msd.verify(signed)
+        result = msd.verify(embedded)
     except Exception as e:
-        failed.append({'description': 'Sign and verify file round-trip', 'error': f'verify raised: {e}'})
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': f'verify raised: {e}'})
         return failed
     
-    if not is_valid:
-        failed.append({'description': 'Sign and verify file round-trip', 'error': 'Verification failed'})
+    if not result['signature_is_valid']:
+        failed.append({'description': 'Sign, embed and verify file round-trip', 'error': 'Verification failed'})
         return failed
     
     # Test: extract_metadata from signed file
     try:
-        extracted_meta = msd.extract_metadata(signed)
+        extracted_meta = msd.extract_metadata(embedded)
     except Exception as e:
         failed.append({'description': 'Extract metadata from signed file', 'error': f'extract_metadata raised: {e}'})
         return failed
@@ -200,7 +174,7 @@ def run_file_tests(test_cases):
     
     # Test: strip_metadata_and_signature
     try:
-        stripped = msd.strip_metadata_and_signature(signed)
+        stripped = msd.strip_metadata_and_signature(embedded)
     except Exception as e:
         failed.append({'description': 'Strip signature returns usable content', 'error': f'strip raised: {e}'})
         return failed
@@ -214,7 +188,7 @@ def run_file_tests(test_cases):
         return failed
     
     # Stripped should be smaller than signed
-    if len(stripped['data']) >= len(signed['data']):
+    if len(stripped['data']) >= len(embedded['data']):
         failed.append({'description': 'Strip signature returns usable content', 'error': 'Stripped not smaller than signed'})
         return failed
     
@@ -227,7 +201,7 @@ def run_file_tests(test_cases):
 
 all_groups = [
     ("Key generation", run_keygen_tests, test_cases_keygen),
-    ("File sign/verify/extract/strip", run_file_tests, test_cases_files),
+    ("File sign/embed/verify/extract/strip", run_file_tests, test_cases_files),
 ]
 
 total_passed = 0
