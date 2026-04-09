@@ -1,16 +1,15 @@
 #%%
 """
-Test file for sign_and_embed_dict, extract_metadata, extract_signature, and verify on dicts.
+Test file for embed() with dict data, extract_metadata, extract_signature, and verify on dicts.
 
 Tests the Unicode steganography signing pipeline:
-  sign_and_embed_dict → verify → extract_metadata → extract_signature
+  sign → embed → verify → extract_metadata → extract_signature
 
-sign_and_embed_dict is NON-DETERMINISTIC (uses zef.now()), so we test
-behavior rather than exact values.
+sign() is NON-DETERMINISTIC (uses zef.now()), so we test behavior rather
+than exact values.
 
 NOTE: Test data must be plain Python dicts (not stored in ET.UnitTest args)
-because sign_and_embed_dict checks isinstance(data, dict), and Zef Dict2_
-types stored inside ET.UnitTest args would fail that check.
+because the SDK functions check isinstance(data, dict).
 """
 
 from zef import *
@@ -28,74 +27,73 @@ sample_key = {
 
 
 # ============================================================================
-# Test 1: Basic sign and verify round-trip
+# Test 1: Basic sign + embed + verify round-trip
 # ============================================================================
-# UIDs for tracking: 🍃-b3cfc01fdde0cf2bd884 through 🍃-ddaec642f513422800b6
 test_cases_sign_verify = [
-  ('🍃-b3cfc01fdde0cf2bd884', 'Sign and verify simple dict',
+  ('🍃-b3cfc01fdde0cf2bd884', 'Sign, embed and verify simple dict',
    {'message': 'hello', 'count': 42}, {'creator': 'Alice'}),
-  ('🍃-21e755af972aff951c6d', 'Sign and verify empty data dict',
+  ('🍃-21e755af972aff951c6d', 'Sign, embed and verify empty data dict',
    {}, {'creator': 'Test'}),
-  ('🍃-59b28554944e0e5edfe8', 'Sign and verify nested dict',
+  ('🍃-59b28554944e0e5edfe8', 'Sign, embed and verify nested dict',
    {'outer': {'inner': {'deep': True}}, 'list': [1, 2, 3]}, {'schema': 'v2'}),
-  ('🍃-db06facdbb581533bb21', 'Sign and verify dict with various value types',
+  ('🍃-db06facdbb581533bb21', 'Sign, embed and verify dict with various value types',
    {'str': 'text', 'int': 99, 'float': 2.718, 'bool': False, 'null': None}, {'type': 'mixed'}),
-  ('🍃-ddaec642f513422800b6', 'Sign and verify dict with empty metadata',
+  ('🍃-ddaec642f513422800b6', 'Sign, embed and verify dict with empty metadata',
    {'data': 'value'}, {}),
 ]
 
 
 def run_sign_verify_tests(test_cases):
-    """Test that sign_and_embed_dict produces verifiable dicts."""
+    """Test that sign() + embed() produces verifiable dicts."""
     failed = []
     
     for uid, desc, data, metadata in test_cases:
         
         try:
-            signed = msd.sign_and_embed_dict(data, metadata, sample_key)
+            signed = msd.sign(data, metadata, sample_key)
+            embedded = msd.embed(signed)
         except Exception as e:
-            failed.append({'description': desc, 'error': f'sign_and_embed_dict raised: {e}'})
+            failed.append({'description': desc, 'error': f'sign/embed raised: {e}'})
             continue
         
         # Must be a dict
-        if not isinstance(signed, dict):
-            failed.append({'description': desc, 'error': f'Expected dict, got {type(signed)}'})
+        if not isinstance(embedded, dict):
+            failed.append({'description': desc, 'error': f'Expected dict, got {type(embedded)}'})
             continue
         
         # Must contain __msd key
-        if '__msd' not in signed:
-            failed.append({'description': desc, 'error': 'Missing __msd key in signed dict'})
+        if '__msd' not in embedded:
+            failed.append({'description': desc, 'error': 'Missing __msd key in embedded dict'})
             continue
         
         # __msd must start with 🔏
-        msd_val = signed['__msd']
+        msd_val = embedded['__msd']
         if not isinstance(msd_val, str) or not msd_val.startswith('🔏'):
             failed.append({'description': desc, 'error': f'__msd should start with 🔏, got: {repr(msd_val[:20])}'})
             continue
         
         # Original data must be preserved
         for k, v in data.items():
-            if k not in signed or signed[k] != v:
+            if k not in embedded or embedded[k] != v:
                 failed.append({'description': desc, 'error': f'Original key {k} not preserved'})
                 break
         else:
-            # Verify must return True
+            # Verify must return valid
             try:
-                is_valid = msd.verify(signed)
+                result = msd.verify(embedded)
             except Exception as e:
                 failed.append({'description': desc, 'error': f'verify raised: {e}'})
                 continue
             
-            if not is_valid:
+            if not result['signature_is_valid']:
                 failed.append({'description': desc, 'error': 'verify returned False for freshly signed dict'})
     
     return failed
 
 
 # ============================================================================
-# Test 2: Tamper detection on signed dicts
+# Test 2: Tamper detection on embedded dicts
 # ============================================================================
-# UIDs: 🍃-716ea33d9151542d3408, 🍃-5933615d1855cf5c3064, 🍃-e961fcc3942b7ae9e5d9
 test_cases_tamper = [
   ('🍃-716ea33d9151542d3408', 'Tamper: modify existing value',
    {'amount': 100, 'currency': 'USD'}, {'source': 'bank'}),
@@ -107,20 +105,22 @@ test_cases_tamper = [
 
 
 def run_tamper_tests(test_cases):
-    """Test that tampering with signed dicts is detected."""
+    """Test that tampering with embedded dicts is detected."""
     failed = []
     
     for uid, desc, data, metadata in test_cases:
         
-        signed = msd.sign_and_embed_dict(data, metadata, sample_key)
+        signed = msd.sign(data, metadata, sample_key)
+        embedded = msd.embed(signed)
         
         # First verify the untampered version works
-        if not msd.verify(signed):
+        result = msd.verify(embedded)
+        if not result['signature_is_valid']:
             failed.append({'description': desc, 'error': 'Untampered dict failed verification'})
             continue
         
         # Now tamper based on the test description
-        tampered = dict(signed)  # shallow copy
+        tampered = dict(embedded)  # shallow copy
         if 'modify existing' in desc.lower():
             first_key = [k for k in data.keys()][0]
             tampered[first_key] = 'TAMPERED'
@@ -132,8 +132,8 @@ def run_tamper_tests(test_cases):
         
         # Tampered dict should fail verification
         try:
-            is_valid = msd.verify(tampered)
-            if is_valid:
+            result = msd.verify(tampered)
+            if result['signature_is_valid']:
                 failed.append({'description': desc, 'error': 'Tampered dict passed verification (should fail)'})
         except Exception:
             # An exception during verify of tampered data is acceptable
@@ -143,27 +143,27 @@ def run_tamper_tests(test_cases):
 
 
 # ============================================================================
-# Test 3: extract_metadata from signed dicts
+# Test 3: extract_metadata from embedded dicts
 # ============================================================================
-# UIDs: 🍃-2aac3f28736ceb6829a1, 🍃-66984824b7733f65772d
 test_cases_extract_meta = [
-  ('🍃-2aac3f28736ceb6829a1', 'Extract metadata from signed dict',
+  ('🍃-2aac3f28736ceb6829a1', 'Extract metadata from embedded dict',
    {'payload': 'test'}, {'creator': 'Alice', 'version': '1.0', 'tags': ['important']}),
-  ('🍃-66984824b7733f65772d', 'Extract empty metadata from signed dict',
+  ('🍃-66984824b7733f65772d', 'Extract empty metadata from embedded dict',
    {'payload': 'test'}, {}),
 ]
 
 
 def run_extract_metadata_tests(test_cases):
-    """Test that extract_metadata recovers the metadata from signed dicts."""
+    """Test that extract_metadata recovers the metadata from embedded dicts."""
     failed = []
     
     for uid, desc, data, metadata in test_cases:
         
-        signed = msd.sign_and_embed_dict(data, metadata, sample_key)
+        signed = msd.sign(data, metadata, sample_key)
+        embedded = msd.embed(signed)
         
         try:
-            extracted = msd.extract_metadata(signed)
+            extracted = msd.extract_metadata(embedded)
         except Exception as e:
             failed.append({'description': desc, 'error': f'extract_metadata raised: {e}'})
             continue
@@ -179,11 +179,10 @@ def run_extract_metadata_tests(test_cases):
 
 
 # ============================================================================
-# Test 4: extract_signature from signed dicts
+# Test 4: extract_signature from embedded dicts
 # ============================================================================
-# UID: 🍃-2931395fffeb9695e7e5
 test_cases_extract_sig = [
-  ('🍃-2931395fffeb9695e7e5', 'Extract signature info from signed dict',
+  ('🍃-2931395fffeb9695e7e5', 'Extract signature info from embedded dict',
    {'payload': 'test'}, {'creator': 'Alice'}),
 ]
 
@@ -194,10 +193,11 @@ def run_extract_signature_tests(test_cases):
     
     for uid, desc, data, metadata in test_cases:
         
-        signed = msd.sign_and_embed_dict(data, metadata, sample_key)
+        signed = msd.sign(data, metadata, sample_key)
+        embedded = msd.embed(signed)
         
         try:
-            sig_info = msd.extract_signature(signed)
+            sig_info = msd.extract_signature(embedded)
         except Exception as e:
             failed.append({'description': desc, 'error': f'extract_signature raised: {e}'})
             continue
@@ -226,33 +226,33 @@ def run_extract_signature_tests(test_cases):
 # ============================================================================
 # Test 5: JSON round-trip survival
 # ============================================================================
-# UID: 🍃-27f9df2925043078bcc8
 test_cases_json = [
-  ('🍃-27f9df2925043078bcc8', 'Signed dict survives JSON round-trip',
+  ('🍃-27f9df2925043078bcc8', 'Embedded dict survives JSON round-trip',
    {'document': 'contract', 'value': 1000}, {'signer': 'legal'}),
 ]
 
 
 def run_json_roundtrip_tests(test_cases):
-    """Test that signed dicts survive JSON serialization/deserialization."""
+    """Test that embedded dicts survive JSON serialization/deserialization."""
     failed = []
     
     for uid, desc, data, metadata in test_cases:
         
-        signed = msd.sign_and_embed_dict(data, metadata, sample_key)
+        signed = msd.sign(data, metadata, sample_key)
+        embedded = msd.embed(signed)
         
         # Round-trip through JSON
-        json_str = json.dumps(signed, ensure_ascii=False)
+        json_str = json.dumps(embedded, ensure_ascii=False)
         restored = json.loads(json_str)
         
         # Verify the restored dict
         try:
-            is_valid = msd.verify(restored)
+            result = msd.verify(restored)
         except Exception as e:
             failed.append({'description': desc, 'error': f'verify after JSON round-trip raised: {e}'})
             continue
         
-        if not is_valid:
+        if not result['signature_is_valid']:
             failed.append({'description': desc, 'error': 'Verification failed after JSON round-trip'})
             continue
         
@@ -267,10 +267,9 @@ def run_json_roundtrip_tests(test_cases):
 # ============================================================================
 # Test 6: Error cases
 # ============================================================================
-# UIDs: 🍃-a2ebf6f39353a7c4a048, 🍃-a4cdf1e486048283be56, 🍃-9fbe8c073929ba7b7852
 test_cases_errors = [
-  ('🍃-a2ebf6f39353a7c4a048', 'sign_and_embed_dict rejects non-dict data'),
-  ('🍃-a4cdf1e486048283be56', 'sign_and_embed_dict rejects dict with existing __msd key'),
+  ('🍃-a2ebf6f39353a7c4a048', 'embed rejects non-dict data in SignedData'),
+  ('🍃-a4cdf1e486048283be56', 'embed rejects dict with existing __msd key'),
   ('🍃-9fbe8c073929ba7b7852', 'verify raises ValueError on unrecognized input'),
 ]
 
@@ -279,18 +278,20 @@ def run_error_tests(test_cases):
     """Test error handling for invalid inputs."""
     failed = []
     
-    # Test: non-dict data
+    # Test: embed rejects non-embeddable data (string)
     try:
-        msd.sign_and_embed_dict("not a dict", {}, sample_key)
-        failed.append({'description': 'Rejects non-dict data', 'error': 'Should have raised ValueError'})
+        signed_str = msd.sign("not a dict", {}, sample_key)
+        msd.embed(signed_str)
+        failed.append({'description': 'Rejects non-embeddable data', 'error': 'Should have raised ValueError'})
     except ValueError:
         pass  # expected
     except Exception as e:
-        failed.append({'description': 'Rejects non-dict data', 'error': f'Wrong exception type: {type(e).__name__}: {e}'})
+        failed.append({'description': 'Rejects non-embeddable data', 'error': f'Wrong exception type: {type(e).__name__}: {e}'})
     
-    # Test: dict with existing __msd key
+    # Test: embed rejects dict with existing __msd key
     try:
-        msd.sign_and_embed_dict({'__msd': 'already here'}, {}, sample_key)
+        signed_msd = msd.sign({'__msd': 'already here'}, {}, sample_key)
+        msd.embed(signed_msd)
         failed.append({'description': 'Rejects existing __msd', 'error': 'Should have raised ValueError'})
     except ValueError:
         pass  # expected
@@ -314,7 +315,7 @@ def run_error_tests(test_cases):
 # ============================================================================
 
 all_groups = [
-    ("Sign & Verify round-trip", run_sign_verify_tests, test_cases_sign_verify),
+    ("Sign, embed & verify round-trip", run_sign_verify_tests, test_cases_sign_verify),
     ("Tamper detection", run_tamper_tests, test_cases_tamper),
     ("Extract metadata", run_extract_metadata_tests, test_cases_extract_meta),
     ("Extract signature", run_extract_signature_tests, test_cases_extract_sig),

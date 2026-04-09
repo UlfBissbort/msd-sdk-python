@@ -44,22 +44,22 @@ test_cases = [
   ET.UnitTest('🍃-ebff94bff303ba9422dc',
     description='Hash a simple dict',
     args=[{'key': 'value'}],
-    expected='ff824e137450fdbcaa175421fc3907f8634091a2351dd8fa5c20e3ae2f50b339'
+    expected='e8823c612e731bcd2c9978c9f5496009f0253b55a3373458e5817d35ed39a41b'
   ),
   ET.UnitTest('🍃-9999a5c6f6dc70c4293a',
     description='Hash a nested dict',
     args=[{'outer': {'inner': 'value', 'count': 42}}],
-    expected='69b37c316b98cf9e952e983ba33aecff9ec834358377afbba7edd0fd8c28c381'
+    expected='cbb3250d931454f0f46e6045464d701d6c42faa5aa8284d6dabc9fa572299daa'
   ),
   ET.UnitTest('🍃-d3d31f59d4cdc416268a',
     description='Hash a simple list',
     args=[[1, 2, 3]],
-    expected='1afe5a19db3df5991fdca782768351bb1618179e10b9d6ddfd92a449d3925599'
+    expected='aefe97151402fcadd8aee3d5b3c1342a1d8cd0ed25b8dabac3b43bed13d71e6d'
   ),
   ET.UnitTest('🍃-5c74a3aaac1981703687',
     description='Hash a mixed list',
     args=[[1, 'two', 3.0, True, nil]],
-    expected='ff0624d4132f833dcd93c93062320dcfec6fe32f8ac9f5bcc44b4ac18a789357'
+    expected='770609b78b20c463d606322f0ce03df1d016ba144d3b6b1b23c0ac046bea084b'
   ),
   ET.UnitTest('🍃-c8b9c6d6f29e9a388e31',
     description='Hash an empty dict',

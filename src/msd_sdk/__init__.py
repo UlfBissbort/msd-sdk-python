@@ -6,13 +6,15 @@ Quick Start
     import msd_sdk as msd
     
     key = msd.generate_key_pair()
-    signed = msd.create_granule({"msg": "hello"}, {"author": "alice"}, key)
-    assert msd.verify(signed)
+    signed = msd.sign({"msg": "hello"}, {"author": "alice"}, key)
+    result = msd.verify(signed)
+    assert result['signature_is_valid']
 
 Core Functions
 --------------
-    create_granule     - Sign data with metadata, returns a granule
-    verify             - Verify a granule's signature
+    sign               - Sign data with metadata, returns ET.SignedData
+    embed              - Embed signature into file or dict
+    verify             - Verify signature, returns rich dict
     content_hash       - Get BLAKE3 Merkle hash of any data
 
 Key Management
@@ -25,17 +27,16 @@ Key Management
     is_endorsed        - Check if key has valid endorsement chain
     get_endorsement_chain - Get full chain from root to key
 
-File Embedding
+File Operations
 --------------
-    sign_and_embed     - Embed signature in PNG/JPG/PDF/DOCX/XLSX/PPTX
-    extract_metadata   - Read embedded metadata from file
-    extract_signature  - Read embedded signature from file
+    extract_metadata   - Read embedded metadata from signed data
+    extract_signature  - Read embedded signature from signed data
     strip_metadata_and_signature - Remove embedded data, get original
 
 Documentation: See docs/overview.md and docs/key-management.md
 """
 
-__version__ = "0.1.7"
+__version__ = "0.2.0"
 
 
 def _verify_zef_installation():
@@ -69,16 +70,15 @@ _zef = _verify_zef_installation()
 
 
 # Re-export core API functions from the core module.
-# This provides a flat API: users write `msd.create_granule()` instead of
-# `msd.core.create_granule()`. The actual implementations live in core.py
+# This provides a flat API: users write `msd.sign()` instead of
+# `msd.core.sign()`. The actual implementations live in core.py
 # for better code organization.
 from msd_sdk.core import (
     key_from_env,
-    create_granule,
+    sign,
+    embed,
     content_hash,
     verify,
-    sign_and_embed,
-    sign_and_embed_dict,
     extract_metadata,
     extract_signature,
     strip_metadata_and_signature,
@@ -101,11 +101,10 @@ __all__ = [
     "__version__",
     # Core API
     "key_from_env",
-    "create_granule", 
+    "sign",
+    "embed",
     "content_hash",
     "verify",
-    "sign_and_embed",
-    "sign_and_embed_dict",
     "extract_metadata",
     "extract_signature",
     "strip_metadata_and_signature",
