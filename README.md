@@ -157,9 +157,9 @@ The signature is hidden in an `__msd` key using **Unicode steganography** — in
 
 ```python
 signed = msd.sign(
-    {"message": "Hello", "count": 42},
-    {"creator": "Alice", "version": "1.0"},
-    my_key
+    data={"message": "Hello", "count": 42},
+    metadata={"creator": "Alice", "version": "1.0"},
+    key=my_key
 )
 embedded = msd.embed(signed)
 # => {"message": "Hello", "count": 42, "__msd": "🔏..."}
@@ -175,9 +175,9 @@ For typed file data (images, PDFs, etc.), `embed()` embeds the signature directl
 import base64
 
 signed = msd.sign(
-    {'__type': 'PngImage', 'data': base64.b64encode(png_bytes).decode()},
-    {'author': 'Alice', 'description': 'sample image'},
-    my_key
+    data={'__type': 'PngImage', 'data': base64.b64encode(png_bytes).decode()},
+    metadata={'author': 'Alice', 'description': 'sample image'},
+    key=my_key
 )
 embedded = msd.embed(signed)
 # => {'__type': 'PngImage', 'data': '<base64 with embedded signature>'}
