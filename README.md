@@ -72,6 +72,13 @@ See [examples/README.md](examples/README.md) for more details.
 
 ## Usage
 
+MSD lets you sign data in two ways:
+
+- **As signed structures** — `sign()` creates a self-contained cryptographic envelope. Integrate into APIs, databases, and pipelines for systematic provenance tracking.
+- **Embedded in files** — `embed()` folds the signature into the data itself: PDFs, Word docs, spreadsheets, images, JSON dicts. The data looks the same — the proof is inside.
+
+Both produce data that `verify()` can check. The choice depends on where the data goes.
+
 ### 1. Keys — Valid vs. Trusted
 
 A signature is only as trustworthy as the key behind it. Anyone can generate a key pair locally — and the SDK will happily sign with it. But a valid signature from an unknown key tells a verifier nothing about *who* signed the data.

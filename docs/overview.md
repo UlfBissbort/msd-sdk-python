@@ -36,7 +36,7 @@ The fundamental unit in MSD is a **Granule**—a piece of data combined with its
 ### Cryptographic Choices
 
 - **Ed25519 Signatures**: Industry-standard, fast, secure (used by SSH, Signal, etc.)
-- **BLAKE3 Hashing**: Modern, parallel, cryptographically secure
+- **MSD Content Hashing**: BLAKE3-based, modern, cryptographically secure
 - **Content-Addressed**: Data is identified by its hash, not arbitrary IDs
 
 *For detailed protocol specification, see [_GRANITE_PROTOCOL_SUMMARY.zef.md](../notes/_GRANITE_PROTOCOL_SUMMARY.zef.md).*
