@@ -13,6 +13,7 @@ test_files = [
     'test_sign_and_embed_files.py',
     'test_sign.py',
     'test_embed.py',
+    'test_trust_network.py',
 ]
 
 total_failures = 0

@@ -43,6 +43,14 @@ Key Management
     key_to_compact     — Convert key to compact string for env vars
     get_key_directory  — OS-appropriate key storage path
 
+Trust Network
+-------------
+    add_to_trust_network    — Add a trusted entity (idempotent)
+    remove_from_trust_network — Remove a trusted entity
+    clear_trust_network     — Remove all trusted entities
+    get_trust_network       — List all trusted entities
+    is_trusted              — Check if an entity is trusted
+
 Documentation: See docs/overview.md and docs/key-management.md
 """
 
@@ -108,6 +116,15 @@ from msd_sdk.key_management import (
     get_endorsement_chain,
 )
 
+# Re-export trust network functions
+from msd_sdk.trust_network import (
+    add_to_trust_network,
+    remove_from_trust_network,
+    get_trust_network,
+    clear_trust_network,
+    is_trusted,
+)
+
 # Re-export types for user annotations
 from msd_sdk._types import (
     MsdHash,
@@ -143,6 +160,12 @@ __all__ = [
     "get_key_directory",
     "is_endorsed",
     "get_endorsement_chain",
+    # Trust Network
+    "add_to_trust_network",
+    "remove_from_trust_network",
+    "get_trust_network",
+    "clear_trust_network",
+    "is_trusted",
     # Types (for user annotations)
     "MsdHash",
     "Time",

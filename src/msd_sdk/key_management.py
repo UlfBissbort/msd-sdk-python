@@ -123,13 +123,8 @@ def get_key_directory() -> str:
     # %APPDATA%\\msd\\keys (Windows)
     ```
     """
-    if sys.platform == "win32":
-        # Windows: use APPDATA, fall back to home if not set
-        base = os.environ.get("APPDATA") or os.path.expanduser("~")
-        return os.path.join(base, "msd", "keys")
-    else:
-        # macOS/Linux: XDG-style config directory
-        return os.path.join(os.path.expanduser("~"), ".config", "msd", "keys")
+    from msd_sdk._config import get_msd_config_root
+    return os.path.join(get_msd_config_root(), "keys")
 
 
 def is_endorsed(key: Ed25519PublicKey) -> bool:
