@@ -6,6 +6,8 @@ Python SDK for Meta Structured Data.
 
 🔑 **[Key Management Guide](docs/key-management.md)** for generating keys, trust hierarchies, and security best practices.
 
+🤝 **[Trust Network](notes/Trust%20Network.md)** for the local trust store design — how the SDK decides who to trust.
+
 📁 **[Typed Data Guide](docs/typed-data.md)** for working with images, PDFs, and documents.
 
 ## Installation
@@ -213,7 +215,22 @@ Both work on dicts with `__msd` and typed file dicts with embedded signatures.
 clean_image = msd.strip_metadata_and_signature(signed_png)
 ```
 
-### 5. Content Hash (without signature)
+### 5. Trust Network
+
+When `verify()` returns `signature_is_trusted: False`, it means the signer isn't in your trust network. Build one:
+
+```python
+msd.add_to_trust_network({'__type': 'ET.GoogleAccount', 'email': 'alice@gmail.com'})
+msd.add_to_trust_network({'__type': 'ET.Organization', 'url': 'https://acme.com'})
+
+msd.is_trusted({'__type': 'ET.GoogleAccount', 'email': 'alice@gmail.com'})  # True
+```
+
+The trust network is stored at `~/.config/msd/trust-network.json` (Linux/macOS) or `%APPDATA%\msd\trust-network.json` (Windows). Override with `MSD_TRUST_NETWORK` env var.
+
+See [notes/Trust Network.md](notes/Trust%20Network.md) for the full design.
+
+### 6. Content Hash (without signature)
 
 ```python
 my_content_hash = msd.content_hash(data)
