@@ -44,7 +44,7 @@ File Operations
 Documentation: See docs/overview.md and docs/key-management.md
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.2"
 
 
 def _verify_zef_installation():
