@@ -439,7 +439,7 @@ def _verify_file(signed_data: dict) -> dict:
     }
 
 
-def verify(data: dict[str, Any]) -> VerifyResult:
+def verify(data: SignedData | dict[str, Any]) -> VerifyResult:
     """
     Verify the signature of signed data, an embedded dict, or a signed file.
     
@@ -678,7 +678,7 @@ def _extract_msd_from_dict(signed_dict_data: dict) -> dict:
     return _to_native_python_hard(result)
 
 
-def extract_metadata(signed_data: dict[str, Any]) -> dict[str, Any]:
+def extract_metadata(signed_data: SignedData | dict[str, Any]) -> dict[str, Any]:
     """
     Extract metadata from signed data.
     
@@ -723,7 +723,7 @@ def extract_metadata(signed_data: dict[str, Any]) -> dict[str, Any]:
 
 
 
-def extract_signature(signed_data: dict[str, Any]) -> SignatureInfo:
+def extract_signature(signed_data: SignedData | dict[str, Any]) -> SignatureInfo:
     """
     Extract signature information from signed data.
     
