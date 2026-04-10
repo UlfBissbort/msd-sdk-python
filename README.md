@@ -63,19 +63,13 @@ Generate your compact key string in [MSD Explorer](https://network.msd-protocol.
 MSD_SIGNING_KEY=msd-key-8d1dc8766070c87a4bb1-hhTRALPNtf9sN8h...
 ```
 
-For local development, download the key file from MSD Explorer and use `load_key()`:
+For local development, download the key file from MSD Explorer and load it directly:
 
 ```python
-my_key = msd.load_key("my-signing-key.json")
+my_key = msd.load_key("~/Downloads/msd-key-8d1dc8766070c87a4bb1.json")
 ```
 
-To convert between formats:
-
-```python
-compact = msd.key_to_compact(my_key)  # dict → compact string
-```
-
-See the [Key Management Guide](docs/key-management.md) for storage best practices and the two-tier key model.
+Bare names (no `/`) resolve to `~/.config/msd/keys/` — see the [Key Management Guide](docs/key-management.md) for storage details and the two-tier key model.
 
 ### 2. Sign Data
 
